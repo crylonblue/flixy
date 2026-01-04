@@ -1,36 +1,119 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# flixy
 
-## Getting Started
+Einfache, sichere und ruhige Rechnungserstellung für kleine bis mittelgroße Unternehmen.
 
-First, run the development server:
+## Features (MVP)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- ✅ **Draft-first Workflow**: Rechnungen stressfrei vorbereiten und bewusst finalisieren
+- ✅ **Entwürfe verwalten**: Liste aller offenen Entwürfe mit Bearbeitungsfunktion
+- ✅ **Rechnung finalisieren**: Validierung, Rechnungsnummern-Vergabe, Status-Management
+- ✅ **Rechnungs-Historie**: Übersicht aller finalisierten Rechnungen mit Status-Tracking
+- ✅ **Kundenverwaltung**: CRUD-Operationen für Kunden
+- ✅ **Firmeneinstellungen**: Verwaltung von Firmendaten und Standardwerten
+- ✅ **Authentifizierung**: Email/Passwort und Google Login
+
+## Tech Stack
+
+- **Frontend**: Next.js 16 (App Router)
+- **Backend/Datenbank/Auth**: Supabase
+- **Styling**: Tailwind CSS
+- **TypeScript**: Vollständig typisiert
+
+## Setup
+
+### 1. Supabase Projekt erstellen
+
+1. Erstelle ein neues Projekt auf [supabase.com](https://supabase.com)
+2. Gehe zu SQL Editor und führe die Migration aus: `supabase/migrations/001_initial_schema.sql`
+3. Aktiviere Google OAuth in den Authentication Settings (optional)
+
+### 2. Umgebungsvariablen
+
+Erstelle eine `.env.local` Datei im Root-Verzeichnis:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=deine_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=dein_supabase_anon_key
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Dependencies installieren
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm install
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Development Server starten
 
-## Learn More
+```bash
+pnpm dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Die App läuft dann auf [http://localhost:3000](http://localhost:3000)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Architektur
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Datenmodell
 
-## Deploy on Vercel
+- **Company**: Oberste Entität, repräsentiert ein Unternehmen
+- **User**: Benutzer mit Profil
+- **CompanyUser**: Join-Tabelle für User-Company-Beziehungen
+- **Customer**: Kunden (sekundäre Entität, primär als Komfortfunktion)
+- **Invoice**: Rechnungen mit Statusmodell (Draft → Created → Sent → Paid)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Invoice-Generation-Service
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Die eigentliche PDF/ZUGFeRD-Generierung wird von einem separaten Service übernommen. Im MVP ist dies als TODO markiert in `components/drafts/draft-editor.tsx`.
+
+Beim Finalisieren einer Rechnung:
+1. flixy validiert die Daten
+2. flixy vergibt die Rechnungsnummer
+3. flixy friert die Daten ein (Snapshot)
+4. flixy sendet die Rechnungsdaten an den Invoice-Service (TODO)
+5. Invoice-Service erzeugt PDF + ZUGFeRD
+6. flixy speichert die Referenz und setzt Status auf 'created'
+
+## UX-Prinzipien
+
+- **Draft-first**: Nichts passiert automatisch
+- **Inline Editing**: Direkte Bearbeitung ohne Modals
+- **Ruhige UI**: Minimalistisches Design
+- **Explizite Statuswechsel**: Klare Aktionen für jeden Statuswechsel
+- **Fehler vermeiden statt erklären**: Validierung vor dem Finalisieren
+
+## Projektstruktur
+
+```
+flixy/
+├── app/
+│   ├── (app)/          # Geschützte Routen (erfordern Auth)
+│   │   ├── drafts/     # Entwürfe
+│   │   ├── invoices/   # Finalisierte Rechnungen
+│   │   ├── customers/  # Kundenverwaltung
+│   │   └── settings/   # Firmeneinstellungen
+│   ├── login/          # Login-Seite
+│   ├── signup/         # Registrierung
+│   └── auth/           # Auth-Callbacks
+├── components/
+│   ├── drafts/         # Draft-Komponenten
+│   ├── invoices/       # Invoice-Komponenten
+│   ├── customers/      # Customer-Komponenten
+│   └── settings/       # Settings-Komponenten
+├── lib/
+│   └── supabase/       # Supabase Client Utilities
+├── types/              # TypeScript Types
+└── supabase/
+    └── migrations/     # Datenbank-Migrationen
+```
+
+## Nächste Schritte
+
+- [ ] Invoice-Generation-Service Integration
+- [ ] PDF-Download-Funktionalität
+- [ ] Erweiterte Filter und Suche
+- [ ] Wiederkehrende Rechnungen (nicht MVP)
+- [ ] Mahnungen (nicht MVP)
+- [ ] Payment-Integrationen (nicht MVP)
+
+## Lizenz
+
+Private Projekt

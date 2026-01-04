@@ -1,0 +1,86 @@
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+
+function getS3Config() {
+  const endpoint = process.env.S3_ENDPOINT
+  const region = process.env.S3_REGION || process.env.AWS_REGION || 'auto'
+  const accessKeyId = process.env.S3_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID
+  const secretAccessKey = process.env.S3_SECRET_KEY || process.env.AWS_SECRET_ACCESS_KEY
+  const bucketName = process.env.S3_BUCKET_NAME
+
+  // Provide helpful error messages
+  if (!accessKeyId) {
+    throw new Error(
+      'S3_ACCESS_KEY or AWS_ACCESS_KEY_ID environment variable is required. ' +
+      'Please add it to your .env.local file and restart the development server.'
+    )
+  }
+  if (!secretAccessKey) {
+    throw new Error(
+      'S3_SECRET_KEY or AWS_SECRET_ACCESS_KEY environment variable is required. ' +
+      'Please add it to your .env.local file and restart the development server.'
+    )
+  }
+  if (!bucketName) {
+    throw new Error(
+      'S3_BUCKET_NAME environment variable is required. ' +
+      'Please add it to your .env.local file and restart the development server.'
+    )
+  }
+
+  return {
+    endpoint,
+    region,
+    accessKeyId,
+    secretAccessKey,
+    bucketName,
+  }
+}
+
+export async function uploadToS3(
+  userId: string,
+  invoiceId: string,
+  fileName: string,
+  fileBuffer: Buffer | Uint8Array,
+  contentType: string
+): Promise<string> {
+  const config = getS3Config()
+  
+  // Configure S3Client for Cloudflare R2 or AWS S3
+  const s3ClientConfig: any = {
+    region: config.region,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+  }
+
+  // If custom endpoint is provided (e.g., Cloudflare R2), use it
+  if (config.endpoint) {
+    s3ClientConfig.endpoint = config.endpoint
+    s3ClientConfig.forcePathStyle = true // Required for Cloudflare R2
+  }
+
+  const s3Client = new S3Client(s3ClientConfig)
+
+  const key = `${userId}/${invoiceId}/${fileName}`
+  
+  const command = new PutObjectCommand({
+    Bucket: config.bucketName,
+    Key: key,
+    Body: fileBuffer,
+    ContentType: contentType,
+  })
+
+  await s3Client.send(command)
+
+  // Return the URL - use custom endpoint if provided, otherwise use AWS S3 format
+  if (config.endpoint) {
+    // For Cloudflare R2: endpoint + /bucket-name/key
+    const endpointUrl = new URL(config.endpoint)
+    return `${endpointUrl.protocol}//${endpointUrl.host}/${config.bucketName}/${key}`
+  } else {
+    // For AWS S3: standard format
+    return `https://${config.bucketName}.s3.${config.region}.amazonaws.com/${key}`
+  }
+}
+
