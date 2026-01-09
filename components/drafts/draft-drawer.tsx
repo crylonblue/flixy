@@ -99,6 +99,8 @@ export default function DraftDrawer() {
         total_amount: 0,
         invoice_number: null,
         invoice_file_reference: null,
+        pdf_url: null,
+        xml_url: null,
         finalized_at: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

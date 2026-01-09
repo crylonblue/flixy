@@ -10,8 +10,8 @@ interface InvoiceViewProps {
 }
 
 export default function InvoiceView({ invoice, company }: InvoiceViewProps) {
-  const customerSnapshot = invoice.customer_snapshot as CustomerSnapshot
-  const lineItems = invoice.line_items as LineItem[]
+  const customerSnapshot = invoice.customer_snapshot as unknown as CustomerSnapshot
+  const lineItems = invoice.line_items as unknown as LineItem[]
   const companyAddress = company?.address as any
 
   return (

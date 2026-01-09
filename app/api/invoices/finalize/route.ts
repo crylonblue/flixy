@@ -23,12 +23,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 })
     }
 
-    // Fetch the finalized invoice
+    // Fetch the invoice (should be draft status before upload)
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
       .select('*')
       .eq('id', invoiceId)
-      .eq('status', 'created')
+      .in('status', ['draft', 'created']) // Accept both draft and created
       .single()
 
     if (invoiceError || !invoice) {
@@ -48,19 +48,32 @@ export async function POST(request: NextRequest) {
     }
 
     const dbInvoice = invoice as DBInvoice
-    const issuerSnapshot = (dbInvoice.issuer_snapshot as unknown as IssuerSnapshot) || null
     const customerSnapshot = (dbInvoice.customer_snapshot as unknown as CustomerSnapshot)!
 
     if (!customerSnapshot) {
       return NextResponse.json({ error: 'Customer snapshot is missing' }, { status: 400 })
     }
 
-    // Get company for logo URL
+    // Get company for issuer data and logo
     const { data: company } = await supabase
       .from('companies')
-      .select('logo_url')
+      .select('*')
       .eq('id', dbInvoice.company_id)
       .single()
+
+    // Build issuer snapshot from company data
+    const issuerSnapshot: IssuerSnapshot | null = company ? {
+      name: company.name,
+      address: company.address as any,
+      vat_id: company.vat_id || undefined,
+      tax_id: company.tax_id || undefined,
+      bank_details: company.bank_details ? {
+        bank_name: (company.bank_details as any).bank_name,
+        iban: (company.bank_details as any).iban,
+        bic: (company.bank_details as any).bic,
+        account_holder: (company.bank_details as any).account_holder,
+      } : undefined,
+    } : null
 
     // Map database invoice to PDF invoice format
     const pdfInvoice = mapDBInvoiceToPDFInvoice(
@@ -108,10 +121,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update invoice with file URLs
+    // Update invoice with file URLs and set status to 'created' after successful upload
     const { error: updateError } = await supabase
       .from('invoices')
       .update({
+        status: 'created', // Set to created only after successful upload
         pdf_url: pdfUrl,
         xml_url: xmlUrl,
       })

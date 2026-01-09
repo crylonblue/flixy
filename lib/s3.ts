@@ -1,4 +1,5 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 function getS3Config() {
   const endpoint = process.env.S3_ENDPOINT
@@ -82,5 +83,52 @@ export async function uploadToS3(
     // For AWS S3: standard format
     return `https://${config.bucketName}.s3.${config.region}.amazonaws.com/${key}`
   }
+}
+
+export async function getPresignedUrl(
+  fileUrl: string,
+  expiresIn: number = 3600 // Default 1 hour
+): Promise<string> {
+  const config = getS3Config()
+
+  // Configure S3Client
+  const s3ClientConfig: any = {
+    region: config.region,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+  }
+
+  if (config.endpoint) {
+    s3ClientConfig.endpoint = config.endpoint
+    s3ClientConfig.forcePathStyle = true
+  }
+
+  const s3Client = new S3Client(s3ClientConfig)
+
+  // Extract the key from the URL
+  let key: string
+  try {
+    const url = new URL(fileUrl)
+    // Remove leading slash and bucket name if present
+    const pathParts = url.pathname.split('/').filter(Boolean)
+    // If the first part is the bucket name, skip it
+    if (pathParts[0] === config.bucketName) {
+      key = pathParts.slice(1).join('/')
+    } else {
+      key = pathParts.join('/')
+    }
+  } catch {
+    // If URL parsing fails, assume it's already a key
+    key = fileUrl
+  }
+
+  const command = new GetObjectCommand({
+    Bucket: config.bucketName,
+    Key: key,
+  })
+
+  return getSignedUrl(s3Client, command, { expiresIn })
 }
 

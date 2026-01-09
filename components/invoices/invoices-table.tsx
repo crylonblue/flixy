@@ -1,9 +1,10 @@
 'use client'
 
-import Link from 'next/link'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Invoice } from '@/types'
+import { useInvoiceDrawer } from '@/contexts/invoice-drawer-context'
+import { isOverdue, getStatusLabel, getStatusClass } from '@/lib/invoice-utils'
 import {
   Table,
   TableBody,
@@ -18,31 +19,7 @@ interface InvoicesTableProps {
 }
 
 export default function InvoicesTable({ invoices }: InvoicesTableProps) {
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'created':
-        return 'status-badge info'
-      case 'sent':
-        return 'status-badge warning'
-      case 'paid':
-        return 'status-badge success'
-      default:
-        return 'status-badge info'
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'created':
-        return 'Erstellt'
-      case 'sent':
-        return 'Versendet'
-      case 'paid':
-        return 'Bezahlt'
-      default:
-        return status
-    }
-  }
+  const { openDrawer } = useInvoiceDrawer()
 
   return (
     <Table>
@@ -62,16 +39,16 @@ export default function InvoicesTable({ invoices }: InvoicesTableProps) {
           return (
             <TableRow
               key={invoice.id}
-              className="cursor-pointer"
+              className="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+              onClick={() => openDrawer(invoice.id)}
             >
               <TableCell>
-                <Link
-                  href={`/invoices/${invoice.id}`}
-                  className="font-medium hover:underline"
+                <span
+                  className="font-medium"
                   style={{ color: 'var(--text-primary)' }}
                 >
                   {invoice.invoice_number || 'Keine Nummer'}
-                </Link>
+                </span>
               </TableCell>
               <TableCell style={{ color: 'var(--text-secondary)' }}>
                 {customerSnapshot?.name || 'Unbekannter Kunde'}
@@ -90,9 +67,16 @@ export default function InvoicesTable({ invoices }: InvoicesTableProps) {
                   : '-'}
               </TableCell>
               <TableCell>
-                <span className={getStatusClass(invoice.status)}>
-                  {getStatusLabel(invoice.status)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={getStatusClass(invoice.status)}>
+                    {getStatusLabel(invoice.status)}
+                  </span>
+                  {isOverdue(invoice) && (
+                    <span className="status-badge error">
+                      Überfällig
+                    </span>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           )

@@ -135,7 +135,7 @@ export default function IssuerSelector({
                 })}
               </CommandGroup>
             </CommandList>
-            <div className="border-t p-1 flex-shrink-0" style={{ borderColor: 'rgb(var(--input))' }}>
+            <div className="border-t border-zinc-200 dark:border-zinc-700 p-1 flex-shrink-0">
               <Button
                 variant="ghost"
                 className="w-full justify-start"

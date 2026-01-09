@@ -21,6 +21,9 @@ export interface Database {
           invoice_number_prefix: string
           invoice_number_format: string
           default_vat_rate: number
+          bank_details: Json | null
+          accounting_email: string | null
+          smtp_settings: Json | null
           created_at: string
           updated_at: string
         }
@@ -35,6 +38,9 @@ export interface Database {
           invoice_number_prefix?: string
           invoice_number_format?: string
           default_vat_rate?: number
+          bank_details?: Json | null
+          accounting_email?: string | null
+          smtp_settings?: Json | null
           created_at?: string
           updated_at?: string
         }
@@ -49,6 +55,9 @@ export interface Database {
           invoice_number_prefix?: string
           invoice_number_format?: string
           default_vat_rate?: number
+          bank_details?: Json | null
+          accounting_email?: string | null
+          smtp_settings?: Json | null
           created_at?: string
           updated_at?: string
         }
@@ -138,7 +147,7 @@ export interface Database {
         Row: {
           id: string
           company_id: string
-          status: 'draft' | 'created' | 'sent' | 'paid'
+          status: 'draft' | 'created' | 'sent' | 'reminded' | 'paid' | 'cancelled'
           invoice_number: string | null
           invoice_date: string | null
           due_date: string | null
@@ -191,6 +200,38 @@ export interface Database {
           created_at?: string
           updated_at?: string
           finalized_at?: string | null
+        }
+      }
+      api_keys: {
+        Row: {
+          id: string
+          company_id: string
+          user_id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          user_id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          user_id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          created_at?: string
+          updated_at?: string
         }
       }
     }

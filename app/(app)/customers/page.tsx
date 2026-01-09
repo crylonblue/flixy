@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import CustomersTable from '@/components/customers/customers-table'
+import CustomersPageHeader from '@/components/customers/customers-page-header'
+import CustomersEmptyState from '@/components/customers/customers-empty-state'
 
 export default async function CustomersPage() {
   const supabase = await createClient()
@@ -37,20 +39,10 @@ export default async function CustomersPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-12">
-      <div className="mb-12">
-        <h1 className="text-headline">Kunden</h1>
-        <p className="mt-2 text-meta">
-          Verwaltung Ihrer Kunden
-        </p>
-      </div>
+      <CustomersPageHeader />
 
       {customers && customers.length === 0 ? (
-        <div className="card card-subtle p-12 text-center">
-          <p className="text-secondary">Noch keine Kunden vorhanden.</p>
-          <p className="mt-2 text-sm text-meta">
-            Kunden können auch beim Erstellen einer Rechnung angelegt werden.
-          </p>
-        </div>
+        <CustomersEmptyState />
       ) : (
         <CustomersTable customers={customers || []} />
       )}

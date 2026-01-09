@@ -33,23 +33,25 @@
   --radius: 0.625rem;
   
   /* Shadcn UI Variables - angepasst an Brand-Farben */
-  --background: 245 245 245; /* #f5f5f5 - unser Off-White */
-  --foreground: 45 45 45; /* #2d2d2d - dunkles Grau */
-  --card: 255 255 255; /* Weiß für Cards */
-  --card-foreground: 45 45 45; /* #2d2d2d */
-  --popover: 255 255 255;
-  --popover-foreground: 45 45 45;
-  --primary: 45 45 45; /* #2d2d2d - neutrales Grau */
-  --primary-foreground: 255 255 255;
-  --secondary: 245 245 245; /* #f5f5f5 - unser Off-White */
-  --secondary-foreground: 45 45 45; /* #2d2d2d */
-  --muted: 245 245 245; /* #f5f5f5 */
-  --muted-foreground: 155 155 155; /* #9b9b9b */
-  --accent-foreground: 45 45 45; /* #2d2d2d */
-  --destructive: 139 107 107; /* #8b6b6b - unser status-error */
-  --input: 229 229 229; /* #e5e5e5 - unser border-default */
-  --ring: 107 107 107; /* #6b6b6b - neutrales Grau */
-  --border: 229 229 229; /* #e5e5e5 */
+  --background: #f5f5f5; /* unser Off-White */
+  --foreground: #2d2d2d; /* dunkles Grau */
+  --card: #ffffff; /* Weiß für Cards */
+  --card-foreground: #2d2d2d;
+  --popover: #ffffff;
+  --popover-foreground: #2d2d2d;
+  --primary: #2d2d2d; /* neutrales Grau */
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5; /* unser Off-White */
+  --secondary-foreground: #2d2d2d;
+  --muted: #f5f5f5;
+  --muted-foreground: #9b9b9b;
+  --accent-ui: #f0f0f0; /* für UI hover states */
+  --accent-foreground: #2d2d2d;
+  --destructive: #8b6b6b; /* unser status-error */
+  --destructive-foreground: #ffffff;
+  --input: #e5e5e5; /* unser border-default */
+  --ring: #6b6b6b; /* neutrales Grau */
+  --border: #e5e5e5;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -66,44 +68,59 @@
 }
 
 @theme inline {
+  /* Core colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-light: var(--accent-light);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent-ui);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  
+  /* Brand accent colors */
+  --color-brand: var(--accent);
+  --color-brand-hover: var(--accent-hover);
+  --color-brand-light: var(--accent-light);
+  
+  /* Text colors */
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-meta: var(--text-meta);
+  
+  /* Fonts */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
+  
+  /* Sidebar */
   --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  
+  /* Charts */
   --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  
+  /* Radius */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -116,8 +133,8 @@
 /* Dark mode deaktiviert - flixy verwendet nur Light Mode für ruhiges, klares Design */
 
 body {
-  background: rgb(var(--background));
-  color: rgb(var(--foreground));
+  background: var(--background);
+  color: var(--foreground);
   font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-feature-settings: 'kern' 1;
   text-rendering: optimizeLegibility;
@@ -315,38 +332,27 @@ a:hover {
   font-size: 0.875rem;
 }
 
+/* Dark mode - deaktiviert, aber für Konsistenz definiert */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #1a1a1a;
+  --foreground: #fafafa;
+  --card: #262626;
+  --card-foreground: #fafafa;
+  --popover: #262626;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #262626;
+  --secondary: #363636;
+  --secondary-foreground: #fafafa;
+  --muted: #363636;
+  --muted-foreground: #a1a1a1;
+  --accent-ui: #363636;
+  --accent-foreground: #fafafa;
+  --destructive: #dc2626;
+  --destructive-foreground: #fafafa;
+  --border: #363636;
+  --input: #363636;
+  --ring: #737373;
 }
 
 @layer base {

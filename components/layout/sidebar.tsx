@@ -74,7 +74,7 @@ export default function Sidebar({ companyName, userEmail, userName }: SidebarPro
   }
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-80 border-r" style={{ borderColor: 'var(--border-default)', background: 'rgb(var(--background))' }}>
+    <aside className="fixed left-0 top-0 h-full w-80 border-r border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900">
       <div className="flex h-full flex-col">
         {/* Top Section: Company Name */}
         <div className="border-b px-8 py-6" style={{ borderColor: 'var(--border-default)' }}>
@@ -148,8 +148,7 @@ export default function Sidebar({ companyName, userEmail, userName }: SidebarPro
                         }}
                       >
                         <Icon 
-                          className="h-4 w-4 flex-shrink-0 transition-colors duration-200" 
-                          style={{ color: active ? 'var(--text-primary)' : 'var(--text-secondary)' }} 
+                          className={`h-4 w-4 flex-shrink-0 transition-colors duration-200 ${active ? 'text-zinc-900' : 'text-zinc-500'}`}
                         />
                         <span className="transition-colors duration-200">{item.name}</span>
                       </Link>

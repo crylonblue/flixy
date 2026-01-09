@@ -173,7 +173,7 @@ export default function IssuerForm({ defaultIssuer, onSave, onCancel }: IssuerFo
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" style={{ borderColor: 'rgb(var(--input))' }}>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 border-zinc-200 dark:border-zinc-700" align="start">
                 <Command>
                   <CommandInput
                     placeholder="Land suchen..."

@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Customer } from '@/types'
@@ -12,12 +11,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useCustomerEditDrawer } from '@/contexts/customer-edit-drawer-context'
 
 interface CustomersTableProps {
   customers: Customer[]
 }
 
 export default function CustomersTable({ customers }: CustomersTableProps) {
+  const { openDrawer } = useCustomerEditDrawer()
+
   const formatAddress = (address: any) => {
     if (!address) return '-'
     const parts = []
@@ -33,6 +35,10 @@ export default function CustomersTable({ customers }: CustomersTableProps) {
       parts.push(address.country)
     }
     return parts.length > 0 ? parts.join(', ') : '-'
+  }
+
+  const handleCustomerClick = (customerId: string) => {
+    openDrawer(customerId)
   }
 
   return (
@@ -54,15 +60,15 @@ export default function CustomersTable({ customers }: CustomersTableProps) {
             <TableRow
               key={customer.id}
               className="cursor-pointer"
+              onClick={() => handleCustomerClick(customer.id)}
             >
               <TableCell>
-                <Link
-                  href={`/customers/${customer.id}`}
+                <span
                   className="font-medium hover:underline"
                   style={{ color: 'var(--text-primary)' }}
                 >
                   {customer.name}
-                </Link>
+                </span>
               </TableCell>
               <TableCell style={{ color: 'var(--text-secondary)' }}>
                 {formatAddress(address)}

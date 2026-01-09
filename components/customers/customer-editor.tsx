@@ -20,12 +20,13 @@ interface CustomerEditorProps {
 export default function CustomerEditor({ customer: initialCustomer }: CustomerEditorProps) {
   const router = useRouter()
   const supabase = createClient()
+  const initialAddress = initialCustomer.address as unknown as Address
   const [customer, setCustomer] = useState({
     name: initialCustomer.name,
-    street: (initialCustomer.address as Address)?.street || '',
-    city: (initialCustomer.address as Address)?.city || '',
-    zip: (initialCustomer.address as Address)?.zip || '',
-    country: (initialCustomer.address as Address)?.country || 'DE',
+    street: initialAddress?.street || '',
+    city: initialAddress?.city || '',
+    zip: initialAddress?.zip || '',
+    country: initialAddress?.country || 'DE',
     email: initialCustomer.email || '',
     vat_id: initialCustomer.vat_id || '',
   })
@@ -155,7 +156,7 @@ export default function CustomerEditor({ customer: initialCustomer }: CustomerEd
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" style={{ borderColor: 'rgb(var(--input))' }}>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 border-zinc-200 dark:border-zinc-700" align="start">
                 <Command className="flex flex-col">
                   <CommandInput
                     placeholder="Land suchen..."

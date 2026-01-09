@@ -299,11 +299,11 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
       let finalizedInvoice: Invoice
 
       if (draft.id) {
-        // Update existing draft to finalized invoice
+        // Update existing draft - keep as draft until upload succeeds
         const { data, error: updateError } = await supabase
           .from('invoices')
           .update({
-            status: 'created',
+            status: 'draft', // Keep as draft until upload succeeds
             invoice_number: invoiceNumber,
             invoice_date: draft.invoice_date,
             due_date: draft.due_date,
@@ -327,12 +327,12 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
 
         finalizedInvoice = data
       } else {
-        // Create new invoice directly as finalized
+        // Create new invoice - keep as draft until upload succeeds
         const { data, error: insertError } = await supabase
           .from('invoices')
           .insert({
             company_id: draft.company_id,
-            status: 'created',
+            status: 'draft', // Keep as draft until upload succeeds
             invoice_number: invoiceNumber,
             invoice_date: draft.invoice_date,
             due_date: draft.due_date,

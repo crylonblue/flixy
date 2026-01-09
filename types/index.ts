@@ -20,6 +20,10 @@ export type Invoice = Database['public']['Tables']['invoices']['Row']
 export type InvoiceInsert = Database['public']['Tables']['invoices']['Insert']
 export type InvoiceUpdate = Database['public']['Tables']['invoices']['Update']
 
+export type ApiKey = Database['public']['Tables']['api_keys']['Row']
+export type ApiKeyInsert = Database['public']['Tables']['api_keys']['Insert']
+export type ApiKeyUpdate = Database['public']['Tables']['api_keys']['Update']
+
 // Helper types for address
 export interface Address {
   street: string
