@@ -1,9 +1,6 @@
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- Companies table (oberste Entität)
 CREATE TABLE companies (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   address JSONB NOT NULL, -- { street, city, zip, country }
   country TEXT NOT NULL,
@@ -29,7 +26,7 @@ CREATE TABLE user_profiles (
 
 -- Company Users (Join table)
 CREATE TABLE company_users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   role TEXT NOT NULL DEFAULT 'member', -- 'owner' or 'member'
@@ -39,7 +36,7 @@ CREATE TABLE company_users (
 
 -- Customers table
 CREATE TABLE customers (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   address JSONB NOT NULL, -- { street, city, zip, country }
@@ -51,7 +48,7 @@ CREATE TABLE customers (
 
 -- Invoices table
 CREATE TABLE invoices (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'draft', -- 'draft', 'created', 'sent', 'paid'
   invoice_number TEXT, -- nur bei status 'created' oder höher

@@ -79,9 +79,15 @@ export default function SignupPage() {
 
     // Fallback to direct insert if function doesn't work
     if (!company) {
-      const { data: insertedCompany, error: companyError } = await supabase
+      // Generate UUID client-side to avoid needing .select()
+      // This bypasses the RLS SELECT policy issue during signup
+      const generatedCompanyId = crypto.randomUUID()
+
+      // Insert company WITHOUT .select() - only INSERT policy is checked
+      const { error: companyError } = await supabase
         .from('companies')
         .insert({
+          id: generatedCompanyId,
           name: companyName,
           address: {
             street: '',
@@ -91,26 +97,17 @@ export default function SignupPage() {
           },
           country: 'DE',
         })
-        .select()
-        .single()
 
-      if (companyError || !insertedCompany) {
-        setError('Fehler beim Erstellen des Unternehmens: ' + (companyError?.message || 'Unbekannter Fehler'))
+      if (companyError) {
+        setError('Fehler beim Erstellen des Unternehmens: ' + companyError.message)
         setIsLoading(false)
         return
       }
 
-      company = insertedCompany
-      companyId = insertedCompany.id
-    }
-
-    // Link user to company as owner (if not already done by function)
-    if (!functionError && functionCompanyId) {
-      // Function already created the link, nothing to do
-    } else {
+      // Link user to company as owner
       const { error: linkError } = await supabase.from('company_users').insert({
         user_id: authData.user.id,
-        company_id: companyId!,
+        company_id: generatedCompanyId,
         role: 'owner',
       })
 
@@ -119,6 +116,9 @@ export default function SignupPage() {
         setIsLoading(false)
         return
       }
+
+      companyId = generatedCompanyId
+      company = { id: generatedCompanyId, name: companyName }
     }
 
     router.push('/')
