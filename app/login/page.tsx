@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { APP_NAME } from '@/lib/config'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -56,9 +56,15 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--background)' }}>
       <div className="w-full max-w-md space-y-8 rounded-lg border p-8" style={{ background: 'white', borderColor: 'var(--border-default)' }}>
         <div>
-          <h1 className="text-2xl font-medium" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{APP_NAME}</h1>
-          <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Einfache, sichere Rechnungserstellung
+          <Image
+            src="/logo_black.svg"
+            alt="blitzrechnung"
+            width={105}
+            height={21}
+            priority
+          />
+          <p className="mt-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Melde dich bei deinem Konto an
           </p>
         </div>
 
