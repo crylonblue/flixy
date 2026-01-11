@@ -8,8 +8,11 @@ import { Invoice, CustomerSnapshot, LineItem } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { User, ShoppingCart, FileText } from 'lucide-react'
+import { User, ShoppingCart, FileText, FileCode, Check, SendHorizontal } from 'lucide-react'
+import SendInvoiceModal from './send-invoice-modal'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -32,8 +35,12 @@ export default function InvoiceDrawer() {
   const [companyName, setCompanyName] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isDownloading, setIsDownloading] = useState(false)
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
+  const [isDownloadingXml, setIsDownloadingXml] = useState(false)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  const [recipientEmail, setRecipientEmail] = useState('')
+  const [isSavingEmail, setIsSavingEmail] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
 
   useEffect(() => {
     if (isOpen && invoiceId) {
@@ -58,6 +65,7 @@ export default function InvoiceDrawer() {
     }
 
     setInvoice(data)
+    setRecipientEmail(data.recipient_email || '')
 
     // Load company name
     const { data: company } = await supabase
@@ -103,23 +111,63 @@ export default function InvoiceDrawer() {
     setIsUpdatingStatus(false)
   }
 
-  const handleDownloadPdf = async () => {
+  const handleSaveRecipientEmail = async () => {
     if (!invoice) return
-    
-    setIsDownloading(true)
+
+    setIsSavingEmail(true)
+    const { error } = await supabase
+      .from('invoices')
+      .update({ recipient_email: recipientEmail || null })
+      .eq('id', invoice.id)
+
+    if (error) {
+      toast.error('Fehler beim Speichern der E-Mail-Adresse')
+    } else {
+      setInvoice({ ...invoice, recipient_email: recipientEmail || null })
+      toast.success('E-Mail-Adresse gespeichert')
+    }
+    setIsSavingEmail(false)
+  }
+
+const handleDownloadPdf = async () => {
+    if (!invoice) return
+
+    setIsDownloadingPdf(true)
     try {
       const response = await fetch(`/api/invoices/${invoice.id}/pdf`)
       const data = await response.json()
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Fehler beim Laden der PDF')
       }
-      
-      window.open(data.url, '_blank')
+
+      window.open(data.pdf_url || data.url, '_blank')
     } catch (err) {
       console.error('Error downloading PDF:', err)
     } finally {
-      setIsDownloading(false)
+      setIsDownloadingPdf(false)
+    }
+  }
+
+  const handleDownloadXml = async () => {
+    if (!invoice) return
+
+    setIsDownloadingXml(true)
+    try {
+      const response = await fetch(`/api/invoices/${invoice.id}/pdf`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Fehler beim Laden der XML')
+      }
+
+      if (data.xml_url) {
+        window.open(data.xml_url, '_blank')
+      }
+    } catch (err) {
+      console.error('Error downloading XML:', err)
+    } finally {
+      setIsDownloadingXml(false)
     }
   }
 
@@ -228,7 +276,7 @@ export default function InvoiceDrawer() {
                 <Select
                   value={invoice.status}
                   onValueChange={handleStatusChange}
-                  disabled={isUpdatingStatus || invoice.status === 'cancelled'}
+                  disabled={isUpdatingStatus}
                 >
                   <SelectTrigger className="w-full bg-white dark:bg-zinc-800">
                     <SelectValue />
@@ -241,30 +289,90 @@ export default function InvoiceDrawer() {
                     ))}
                   </SelectContent>
                 </Select>
-                {invoice.status === 'cancelled' && (
-                  <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
-                    Stornierte Rechnungen können nicht mehr geändert werden.
-                  </p>
-                )}
               </div>
 
-              {/* PDF Download Button */}
-              {(invoice.pdf_url || invoice.invoice_file_reference) && (
-                <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+              {/* Recipient Email */}
+              <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                <Label htmlFor="recipient_email" className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2 block">
+                  Empfänger E-Mail
+                </Label>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    id="recipient_email"
+                    type="email"
+                    value={recipientEmail}
+                    onChange={(e) => setRecipientEmail(e.target.value)}
+                    placeholder="rechnung@kunde.de"
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={handleSaveRecipientEmail}
+                    disabled={isSavingEmail}
+                    className="h-9 w-9 p-0 shrink-0"
+                  >
+                    <Check className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="mt-1.5 text-xs text-zinc-400 dark:text-zinc-500">
+                  E-Mail-Adresse für den Rechnungsversand
+                </p>
+              </div>
+
+              {/* Download Buttons */}
+              {(invoice.pdf_url || invoice.invoice_file_reference || invoice.xml_url) && (
+                <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-700 space-y-2">
+                  {(invoice.pdf_url || invoice.invoice_file_reference) && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleDownloadPdf}
+                      disabled={isDownloadingPdf}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      {isDownloadingPdf ? 'Lädt...' : 'PDF herunterladen'}
+                    </Button>
+                  )}
+                  {invoice.xml_url && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleDownloadXml}
+                      disabled={isDownloadingXml}
+                    >
+                      <FileCode className="h-4 w-4 mr-2" />
+                      {isDownloadingXml ? 'Lädt...' : 'XML herunterladen (XRechnung/ZUGFeRD)'}
+                    </Button>
+                  )}
+                  
+                  {/* Send Email Button */}
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={handleDownloadPdf}
-                    disabled={isDownloading}
+                    onClick={() => setShowSendModal(true)}
                   >
-                    <FileText className="h-4 w-4 mr-2" />
-                    {isDownloading ? 'Lädt...' : 'PDF herunterladen'}
+                    <SendHorizontal className="h-4 w-4 mr-2" />
+                    Per E-Mail versenden
                   </Button>
                 </div>
               )}
             </div>
           </div>
         ) : null}
+
+        {/* Send Invoice Modal */}
+        {invoice && (
+          <SendInvoiceModal
+            invoice={invoice}
+            isOpen={showSendModal}
+            onClose={() => setShowSendModal(false)}
+            onSent={() => {
+              setShowSendModal(false)
+              loadInvoice(invoice.id) // Reload to update status
+              router.refresh()
+            }}
+          />
+        )}
       </SheetContent>
     </Sheet>
   )

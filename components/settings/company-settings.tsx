@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Company, Address } from '@/types'
+import { Company, Address, EmailSettings } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -10,13 +10,13 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { Check, ChevronsUpDown, LoaderCircle } from 'lucide-react'
+import { Check, ChevronsUpDown, LoaderCircle, Copy, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { COUNTRIES } from '@/lib/countries'
-import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import ApiKeysSection from './api-keys-section'
+import { DEFAULT_INVOICE_EMAIL_SUBJECT, DEFAULT_INVOICE_EMAIL_BODY, EMAIL_PLACEHOLDERS } from '@/lib/email-templates'
 
 interface CompanySettingsProps {
   company: Company
@@ -26,7 +26,7 @@ export default function CompanySettings({ company: initialCompany }: CompanySett
   const router = useRouter()
   const supabase = createClient()
   const bankDetails = (initialCompany.bank_details as any) || {}
-  const smtpSettings = (initialCompany.smtp_settings as any) || {}
+  const initialEmailSettings = (initialCompany.email_settings as EmailSettings) || { mode: 'default' }
   const initialAddress = initialCompany.address as unknown as Address
   const [company, setCompany] = useState({
     name: initialCompany.name,
@@ -44,16 +44,23 @@ export default function CompanySettings({ company: initialCompany }: CompanySett
     bic: bankDetails.bic || '',
     account_holder: bankDetails.account_holder || '',
     accounting_email: initialCompany.accounting_email || '',
-    smtp_host: smtpSettings.host || '',
-    smtp_port: smtpSettings.port?.toString() || '587',
-    smtp_secure: smtpSettings.secure || false,
-    smtp_user: smtpSettings.auth?.user || '',
-    smtp_pass: smtpSettings.auth?.pass || '',
+    // XRechnung BR-DE-2: Seller Contact (Pflichtfeld)
+    contact_name: initialCompany.contact_name || '',
+    contact_phone: initialCompany.contact_phone || '',
+    contact_email: initialCompany.contact_email || '',
   })
+  const [emailSettings, setEmailSettings] = useState<EmailSettings>(initialEmailSettings)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [countryOpen, setCountryOpen] = useState(false)
   const [countrySearchQuery, setCountrySearchQuery] = useState('')
+  
+  // Email domain setup state
+  const [isSettingUpDomain, setIsSettingUpDomain] = useState(false)
+  const [isVerifyingDomain, setIsVerifyingDomain] = useState(false)
+  const [isDeletingDomain, setIsDeletingDomain] = useState(false)
+  const [newDomainEmail, setNewDomainEmail] = useState('')
+  const [newDomainName, setNewDomainName] = useState(initialCompany.name || '')
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -83,15 +90,10 @@ export default function CompanySettings({ company: initialCompany }: CompanySett
             account_holder: company.account_holder || null,
           },
           accounting_email: company.accounting_email || null,
-          smtp_settings: {
-            host: company.smtp_host || null,
-            port: company.smtp_port ? parseInt(company.smtp_port) : null,
-            secure: company.smtp_secure || false,
-            auth: {
-              user: company.smtp_user || null,
-              pass: company.smtp_pass || null,
-            },
-          },
+          // XRechnung BR-DE-2: Seller Contact
+          contact_name: company.contact_name || null,
+          contact_phone: company.contact_phone || null,
+          contact_email: company.contact_email || null,
         })
         .eq('id', initialCompany.id)
 
@@ -117,6 +119,161 @@ export default function CompanySettings({ company: initialCompany }: CompanySett
       setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
       setIsSaving(false)
     }
+  }
+
+  const handleSaveEmailSettings = async () => {
+    setIsSaving(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/domains/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reply_to_email: emailSettings.reply_to_email,
+          reply_to_name: emailSettings.reply_to_name,
+          invoice_email_subject: emailSettings.invoice_email_subject,
+          invoice_email_body: emailSettings.invoice_email_body,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Fehler beim Speichern')
+      }
+
+      toast.success('E-Mail-Einstellungen gespeichert')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fehler beim Speichern')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSetupDomain = async () => {
+    if (!newDomainEmail || !newDomainName) {
+      toast.error('Bitte E-Mail-Adresse und Absendername eingeben')
+      return
+    }
+
+    setIsSettingUpDomain(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/domains', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from_email: newDomainEmail,
+          from_name: newDomainName,
+          reply_to_email: emailSettings.reply_to_email,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Fehler beim Einrichten der Domain')
+      }
+
+      // Update local state immediately with the new settings
+      setEmailSettings({
+        ...emailSettings,
+        mode: 'custom_domain',
+        custom_domain: data.domain,
+        from_email: newDomainEmail,
+        from_name: newDomainName,
+        domain_verified: false,
+        dns_records: data.dns_records,
+      })
+
+      toast.success('Domain eingerichtet', {
+        description: 'Bitte fügen Sie die DNS-Einträge hinzu und verifizieren Sie die Domain.',
+      })
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fehler beim Einrichten der Domain')
+    } finally {
+      setIsSettingUpDomain(false)
+    }
+  }
+
+  const handleVerifyDomain = async () => {
+    setIsVerifyingDomain(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/domains/verify', {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Fehler bei der Verifizierung')
+      }
+
+      // Update local state with verification result
+      setEmailSettings({
+        ...emailSettings,
+        domain_verified: data.verified,
+        domain_verified_at: data.verified ? new Date().toISOString() : undefined,
+        dns_records: data.dns_records,
+      })
+
+      if (data.verified) {
+        toast.success('Domain verifiziert!', {
+          description: 'Sie können jetzt E-Mails von Ihrer eigenen Domain versenden.',
+        })
+      }
+      // No toast for incomplete verification - the UI shows the status directly
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fehler bei der Verifizierung')
+    } finally {
+      setIsVerifyingDomain(false)
+    }
+  }
+
+  const handleDeleteDomain = async () => {
+    if (!confirm('Möchten Sie die eigene Domain wirklich entfernen? E-Mails werden dann wieder über blitzrechnung.de versendet.')) {
+      return
+    }
+
+    setIsDeletingDomain(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/domains', {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Fehler beim Entfernen der Domain')
+      }
+
+      // Reset to default mode
+      setEmailSettings({
+        mode: 'default',
+        reply_to_email: emailSettings.reply_to_email,
+        reply_to_name: emailSettings.reply_to_name,
+      })
+
+      toast.success('Domain entfernt')
+      setNewDomainEmail('')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fehler beim Entfernen der Domain')
+    } finally {
+      setIsDeletingDomain(false)
+    }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    toast.success('In Zwischenablage kopiert')
   }
 
   return (
@@ -406,6 +563,53 @@ export default function CompanySettings({ company: initialCompany }: CompanySett
                     </div>
                   </div>
                 </div>
+
+                {/* Ansprechpartner Section - XRechnung BR-DE-2 */}
+                <div className="pt-6 mt-6 border-t" style={{ borderColor: 'var(--border-default)' }}>
+                  <h2 className="mb-2 text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
+                    Ansprechpartner
+                  </h2>
+                  <p className="mb-4 text-xs" style={{ color: 'var(--text-meta)' }}>
+                    Pflichtfeld für XRechnung-konforme Rechnungen
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="contact_name">Name</Label>
+                      <Input
+                        id="contact_name"
+                        type="text"
+                        value={company.contact_name}
+                        onChange={(e) => setCompany({ ...company, contact_name: e.target.value })}
+                        className="mt-1.5"
+                        placeholder="Max Mustermann"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="contact_phone">Telefon</Label>
+                      <Input
+                        id="contact_phone"
+                        type="tel"
+                        value={company.contact_phone}
+                        onChange={(e) => setCompany({ ...company, contact_phone: e.target.value })}
+                        className="mt-1.5"
+                        placeholder="+49 30 123456"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="contact_email">E-Mail</Label>
+                      <Input
+                        id="contact_email"
+                        type="email"
+                        value={company.contact_email}
+                        onChange={(e) => setCompany({ ...company, contact_email: e.target.value })}
+                        className="mt-1.5"
+                        placeholder="kontakt@firma.de"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </TabsContent>
 
@@ -463,6 +667,62 @@ export default function CompanySettings({ company: initialCompany }: CompanySett
                     An diese Adresse werden fertige Rechnungen automatisch versendet (z.B. für Datev oder andere Buchhaltungssysteme)
                   </p>
                 </div>
+
+                {/* Email Template Section */}
+                <div className="pt-6 mt-6 border-t" style={{ borderColor: 'var(--border-default)' }}>
+                  <h2 className="mb-4 text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
+                    E-Mail-Vorlage für Rechnungsversand
+                  </h2>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="invoice_email_subject">Betreff</Label>
+                      <Input
+                        id="invoice_email_subject"
+                        type="text"
+                        value={emailSettings.invoice_email_subject || ''}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, invoice_email_subject: e.target.value })}
+                        className="mt-1.5"
+                        placeholder={DEFAULT_INVOICE_EMAIL_SUBJECT}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="invoice_email_body">Nachricht</Label>
+                      <textarea
+                        id="invoice_email_body"
+                        value={emailSettings.invoice_email_body || ''}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, invoice_email_body: e.target.value })}
+                        className="mt-1.5 w-full min-h-[150px] rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800"
+                        placeholder={DEFAULT_INVOICE_EMAIL_BODY}
+                      />
+                    </div>
+
+                    <div className="p-3 rounded-md bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700">
+                      <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                        Verfügbare Platzhalter:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {EMAIL_PLACEHOLDERS.map((p) => (
+                          <span
+                            key={p.placeholder}
+                            className="inline-flex items-center px-2 py-1 rounded text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600"
+                          >
+                            <code className="font-mono text-zinc-700 dark:text-zinc-300">{p.placeholder}</code>
+                            <span className="ml-1.5 text-zinc-500">= {p.description}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-4">
+                      <Button onClick={handleSaveEmailSettings} disabled={isSaving}>
+                        {isSaving && <LoaderCircle className="h-4 w-4 mr-2 animate-spin" />}
+                        E-Mail-Vorlage speichern
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </TabsContent>
 
@@ -470,78 +730,258 @@ export default function CompanySettings({ company: initialCompany }: CompanySett
             <TabsContent value="email" className="space-y-6 mt-0">
               <CardHeader className="px-0 pb-4">
                 <CardTitle className="text-lg font-medium" style={{ color: 'var(--text-primary)' }}>
-                  E-Mail-Einstellungen (SMTP)
+                  E-Mail-Einstellungen
                 </CardTitle>
                 <CardDescription className="text-sm">
-                  Konfiguration für den Versand von E-Mails im Auftrag Ihres Unternehmens
+                  Konfiguration für den Versand von Rechnungen per E-Mail
                 </CardDescription>
               </CardHeader>
 
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="smtp_host">SMTP-Server</Label>
-                    <Input
-                      id="smtp_host"
-                      type="text"
-                      value={company.smtp_host}
-                      onChange={(e) => setCompany({ ...company, smtp_host: e.target.value })}
-                      className="mt-1.5"
-                      placeholder="smtp.beispiel.de"
-                    />
+              <div className="space-y-6">
+                {/* Current Mode Display */}
+                <div className="p-4 rounded-lg border" style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--background)' }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {emailSettings.mode === 'default' ? (
+                      <>
+                        <AlertCircle className="h-4 w-4 text-blue-500" />
+                        <span className="font-medium">Standard-Versand</span>
+                      </>
+                    ) : emailSettings.domain_verified ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span className="font-medium">Eigene Domain (verifiziert)</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-4 w-4 text-amber-500" />
+                        <span className="font-medium">Eigene Domain (Verifizierung ausstehend)</span>
+                      </>
+                    )}
                   </div>
-                  <div>
-                    <Label htmlFor="smtp_port">Port</Label>
-                    <Input
-                      id="smtp_port"
-                      type="number"
-                      value={company.smtp_port}
-                      onChange={(e) => setCompany({ ...company, smtp_port: e.target.value })}
-                      className="mt-1.5"
-                      placeholder="587"
-                    />
-                    <p className="mt-1.5 text-xs text-meta">
-                      Typisch: 587 (TLS) oder 465 (SSL)
-                    </p>
-                  </div>
+                  <p className="text-sm text-meta">
+                    {emailSettings.mode === 'default' 
+                      ? 'E-Mails werden über rechnung@blitzrechnung.de versendet.'
+                      : emailSettings.domain_verified
+                        ? `E-Mails werden über ${emailSettings.from_email} versendet.`
+                        : `E-Mails werden über rechnung@blitzrechnung.de versendet, bis ${emailSettings.custom_domain} verifiziert ist.`
+                    }
+                  </p>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="smtp_secure"
-                    checked={company.smtp_secure}
-                    onCheckedChange={(checked) => setCompany({ ...company, smtp_secure: checked })}
-                  />
-                  <Label htmlFor="smtp_secure" className="cursor-pointer">
-                    SSL/TLS verwenden
-                  </Label>
-                </div>
-
+                {/* Reply-To Setting */}
                 <div>
-                  <Label htmlFor="smtp_user">Benutzername / E-Mailadresse</Label>
+                  <Label htmlFor="reply_to_email">Antwort-Adresse (Reply-To)</Label>
                   <Input
-                    id="smtp_user"
-                    type="text"
-                    value={company.smtp_user}
-                    onChange={(e) => setCompany({ ...company, smtp_user: e.target.value })}
+                    id="reply_to_email"
+                    type="email"
+                    value={emailSettings.reply_to_email || ''}
+                    onChange={(e) => setEmailSettings({ ...emailSettings, reply_to_email: e.target.value })}
                     className="mt-1.5"
-                    placeholder="benutzer@beispiel.de"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="smtp_pass">Passwort</Label>
-                  <Input
-                    id="smtp_pass"
-                    type="password"
-                    value={company.smtp_pass}
-                    onChange={(e) => setCompany({ ...company, smtp_pass: e.target.value })}
-                    className="mt-1.5"
-                    placeholder="••••••••"
+                    placeholder="buchhaltung@ihre-firma.de"
                   />
                   <p className="mt-1.5 text-xs text-meta">
-                    Das Passwort wird verschlüsselt gespeichert
+                    Antworten Ihrer Kunden werden an diese Adresse gesendet
                   </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="reply_to_name">Antwort-Name (optional)</Label>
+                  <Input
+                    id="reply_to_name"
+                    type="text"
+                    value={emailSettings.reply_to_name || ''}
+                    onChange={(e) => setEmailSettings({ ...emailSettings, reply_to_name: e.target.value })}
+                    className="mt-1.5"
+                    placeholder="Buchhaltung Muster GmbH"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={handleSaveEmailSettings} disabled={isSaving}>
+                    {isSaving && <LoaderCircle className="h-4 w-4 mr-2 animate-spin" />}
+                    Antwort-Adresse speichern
+                  </Button>
+                </div>
+
+                {/* Custom Domain Section */}
+                <div className="pt-6 mt-6 border-t" style={{ borderColor: 'var(--border-default)' }}>
+                  <h2 className="mb-4 text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
+                    Eigene Absender-Domain
+                  </h2>
+                  
+                  {emailSettings.mode === 'custom_domain' && emailSettings.custom_domain ? (
+                    <div className="space-y-4">
+                      {/* Domain Info */}
+                      <div className="p-4 rounded-lg border" style={{ borderColor: 'var(--border-default)' }}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="font-medium">{emailSettings.from_email}</p>
+                            <p className="text-sm text-meta">{emailSettings.from_name}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {emailSettings.domain_verified ? (
+                              <span className="status-badge success">Verifiziert</span>
+                            ) : (
+                              <span className="status-badge warning">Ausstehend</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* DNS Records */}
+                      {emailSettings.dns_records && (
+                        <div className="space-y-3">
+                          <p className="text-sm font-medium">Erforderliche DNS-Einträge:</p>
+                          
+                          {/* DKIM Record */}
+                          {emailSettings.dns_records.dkim?.value && (
+                            <div 
+                              className="p-3 rounded border"
+                              style={{ 
+                                borderColor: emailSettings.dns_records.dkim?.verified === true 
+                                  ? '#22c55e' 
+                                  : emailSettings.dns_records.dkim?.verified === false 
+                                    ? '#ef4444' 
+                                    : 'var(--border-default)',
+                                backgroundColor: emailSettings.dns_records.dkim?.verified === true 
+                                  ? '#f0fdf4' 
+                                  : emailSettings.dns_records.dkim?.verified === false 
+                                    ? '#fef2f2' 
+                                    : 'var(--background)'
+                              }}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  {emailSettings.dns_records.dkim?.verified === true ? (
+                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                  ) : emailSettings.dns_records.dkim?.verified === false ? (
+                                    <XCircle className="h-4 w-4 text-red-500" />
+                                  ) : (
+                                    <AlertCircle className="h-4 w-4 text-zinc-400" />
+                                  )}
+                                  <span className="text-xs font-medium uppercase text-meta">DKIM (TXT)</span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2"
+                                  onClick={() => copyToClipboard(emailSettings.dns_records?.dkim?.value || '')}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <p className="text-xs text-meta mb-1">Host: {emailSettings.dns_records.dkim?.host}</p>
+                              <p className="text-xs font-mono break-all">{emailSettings.dns_records.dkim?.value}</p>
+                            </div>
+                          )}
+
+                          {/* Return Path Record */}
+                          {emailSettings.dns_records.return_path?.value && (
+                            <div 
+                              className="p-3 rounded border"
+                              style={{ 
+                                borderColor: emailSettings.dns_records.return_path?.verified === true 
+                                  ? '#22c55e' 
+                                  : emailSettings.dns_records.return_path?.verified === false 
+                                    ? '#ef4444' 
+                                    : 'var(--border-default)',
+                                backgroundColor: emailSettings.dns_records.return_path?.verified === true 
+                                  ? '#f0fdf4' 
+                                  : emailSettings.dns_records.return_path?.verified === false 
+                                    ? '#fef2f2' 
+                                    : 'var(--background)'
+                              }}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  {emailSettings.dns_records.return_path?.verified === true ? (
+                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                  ) : emailSettings.dns_records.return_path?.verified === false ? (
+                                    <XCircle className="h-4 w-4 text-red-500" />
+                                  ) : (
+                                    <AlertCircle className="h-4 w-4 text-zinc-400" />
+                                  )}
+                                  <span className="text-xs font-medium uppercase text-meta">Return-Path (CNAME)</span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2"
+                                  onClick={() => copyToClipboard(emailSettings.dns_records?.return_path?.value || '')}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <p className="text-xs text-meta mb-1">Host: {emailSettings.dns_records.return_path?.host}</p>
+                              <p className="text-xs font-mono break-all">{emailSettings.dns_records.return_path?.value}</p>
+                            </div>
+                          )}
+
+                          {/* Info if no DNS records available */}
+                          {!emailSettings.dns_records.dkim?.value &&
+                           !emailSettings.dns_records.return_path?.value && (
+                            <p className="text-sm text-meta">
+                              Keine DNS-Einträge erforderlich. Die Domain wird automatisch über Postmark verifiziert.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="flex gap-2">
+                        {!emailSettings.domain_verified && (
+                          <Button onClick={handleVerifyDomain} disabled={isVerifyingDomain}>
+                            {isVerifyingDomain && <LoaderCircle className="h-4 w-4 mr-2 animate-spin" />}
+                            Domain verifizieren
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          onClick={handleDeleteDomain}
+                          disabled={isDeletingDomain}
+                        >
+                          {isDeletingDomain && <LoaderCircle className="h-4 w-4 mr-2 animate-spin" />}
+                          Domain entfernen
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-sm text-meta">
+                        Richten Sie eine eigene Domain ein, um E-Mails von Ihrer Firmenadresse zu versenden.
+                        Sie müssen dafür DNS-Einträge bei Ihrem Domain-Anbieter hinzufügen.
+                      </p>
+
+                      <div>
+                        <Label htmlFor="new_domain_email">Absender E-Mail-Adresse</Label>
+                        <Input
+                          id="new_domain_email"
+                          type="email"
+                          value={newDomainEmail}
+                          onChange={(e) => setNewDomainEmail(e.target.value)}
+                          className="mt-1.5"
+                          placeholder="rechnung@ihre-firma.de"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="new_domain_name">Absender-Name</Label>
+                        <Input
+                          id="new_domain_name"
+                          type="text"
+                          value={newDomainName}
+                          onChange={(e) => setNewDomainName(e.target.value)}
+                          className="mt-1.5"
+                          placeholder="Muster GmbH"
+                        />
+                      </div>
+
+                      <Button onClick={handleSetupDomain} disabled={isSettingUpDomain || !newDomainEmail || !newDomainName}>
+                        {isSettingUpDomain && <LoaderCircle className="h-4 w-4 mr-2 animate-spin" />}
+                        Eigene Domain einrichten
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </TabsContent>

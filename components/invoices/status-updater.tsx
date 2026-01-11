@@ -34,19 +34,10 @@ export default function StatusUpdater({ invoice }: StatusUpdaterProps) {
     setIsUpdating(false)
   }
 
-  // Cancelled is final - no actions available
-  if (invoice.status === 'cancelled') {
-    return (
-      <span className={getStatusClass(invoice.status)}>
-        {getStatusLabel(invoice.status)}
-      </span>
-    )
-  }
-
   return (
     <div className="flex flex-wrap gap-2">
-      {/* Zurück zu Versendet - von paid */}
-      {invoice.status === 'paid' && (
+      {/* Zurück zu Versendet - von paid oder cancelled */}
+      {['paid', 'cancelled'].includes(invoice.status) && (
         <Button
           onClick={() => handleStatusChange('sent')}
           disabled={isUpdating}
@@ -81,8 +72,8 @@ export default function StatusUpdater({ invoice }: StatusUpdaterProps) {
         </Button>
       )}
 
-      {/* Bezahlt - von created, sent oder reminded */}
-      {['created', 'sent', 'reminded'].includes(invoice.status) && (
+      {/* Bezahlt - von created, sent, reminded oder cancelled */}
+      {['created', 'sent', 'reminded', 'cancelled'].includes(invoice.status) && (
         <Button
           onClick={() => handleStatusChange('paid')}
           disabled={isUpdating}

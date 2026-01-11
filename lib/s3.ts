@@ -108,21 +108,7 @@ export async function getPresignedUrl(
   const s3Client = new S3Client(s3ClientConfig)
 
   // Extract the key from the URL
-  let key: string
-  try {
-    const url = new URL(fileUrl)
-    // Remove leading slash and bucket name if present
-    const pathParts = url.pathname.split('/').filter(Boolean)
-    // If the first part is the bucket name, skip it
-    if (pathParts[0] === config.bucketName) {
-      key = pathParts.slice(1).join('/')
-    } else {
-      key = pathParts.join('/')
-    }
-  } catch {
-    // If URL parsing fails, assume it's already a key
-    key = fileUrl
-  }
+  const key = extractKeyFromUrl(fileUrl, config.bucketName)
 
   const command = new GetObjectCommand({
     Bucket: config.bucketName,
@@ -130,5 +116,77 @@ export async function getPresignedUrl(
   })
 
   return getSignedUrl(s3Client, command, { expiresIn })
+}
+
+/**
+ * Downloads a file from S3 and returns it as a Buffer
+ */
+export async function downloadFromS3(fileUrl: string): Promise<Buffer> {
+  const config = getS3Config()
+
+  // Configure S3Client
+  const s3ClientConfig: any = {
+    region: config.region,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+  }
+
+  if (config.endpoint) {
+    s3ClientConfig.endpoint = config.endpoint
+    s3ClientConfig.forcePathStyle = true
+  }
+
+  const s3Client = new S3Client(s3ClientConfig)
+
+  // Extract the key from the URL
+  const key = extractKeyFromUrl(fileUrl, config.bucketName)
+  console.log('[S3] Downloading file - URL:', fileUrl, 'Key:', key, 'Bucket:', config.bucketName)
+
+  const command = new GetObjectCommand({
+    Bucket: config.bucketName,
+    Key: key,
+  })
+
+  try {
+    const response = await s3Client.send(command)
+
+    if (!response.Body) {
+      throw new Error('No file content returned from S3')
+    }
+
+    // Convert stream to buffer
+    const chunks: Uint8Array[] = []
+    for await (const chunk of response.Body as any) {
+      chunks.push(chunk)
+    }
+    const buffer = Buffer.concat(chunks)
+    console.log('[S3] Downloaded successfully, size:', buffer.length, 'bytes')
+    return buffer
+  } catch (err) {
+    console.error('[S3] Download failed:', err)
+    throw err
+  }
+}
+
+/**
+ * Extracts the S3 key from a file URL
+ */
+function extractKeyFromUrl(fileUrl: string, bucketName: string): string {
+  try {
+    const url = new URL(fileUrl)
+    // Remove leading slash and bucket name if present
+    const pathParts = url.pathname.split('/').filter(Boolean)
+    // If the first part is the bucket name, skip it
+    if (pathParts[0] === bucketName) {
+      return pathParts.slice(1).join('/')
+    } else {
+      return pathParts.join('/')
+    }
+  } catch {
+    // If URL parsing fails, assume it's already a key
+    return fileUrl
+  }
 }
 

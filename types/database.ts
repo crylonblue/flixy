@@ -23,7 +23,10 @@ export interface Database {
           default_vat_rate: number
           bank_details: Json | null
           accounting_email: string | null
-          smtp_settings: Json | null
+          email_settings: Json | null
+          contact_name: string | null
+          contact_phone: string | null
+          contact_email: string | null
           created_at: string
           updated_at: string
         }
@@ -40,7 +43,10 @@ export interface Database {
           default_vat_rate?: number
           bank_details?: Json | null
           accounting_email?: string | null
-          smtp_settings?: Json | null
+          email_settings?: Json | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          contact_email?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -57,7 +63,10 @@ export interface Database {
           default_vat_rate?: number
           bank_details?: Json | null
           accounting_email?: string | null
-          smtp_settings?: Json | null
+          email_settings?: Json | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          contact_email?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -159,6 +168,7 @@ export interface Database {
           invoice_file_reference: string | null
           pdf_url: string | null
           xml_url: string | null
+          recipient_email: string | null
           created_at: string
           updated_at: string
           finalized_at: string | null
@@ -166,7 +176,7 @@ export interface Database {
         Insert: {
           id?: string
           company_id: string
-          status?: 'draft' | 'created' | 'sent' | 'paid'
+          status?: 'draft' | 'created' | 'sent' | 'reminded' | 'paid' | 'cancelled'
           invoice_number?: string | null
           invoice_date?: string | null
           due_date?: string | null
@@ -178,6 +188,7 @@ export interface Database {
           invoice_file_reference?: string | null
           pdf_url?: string | null
           xml_url?: string | null
+          recipient_email?: string | null
           created_at?: string
           updated_at?: string
           finalized_at?: string | null
@@ -185,7 +196,7 @@ export interface Database {
         Update: {
           id?: string
           company_id?: string
-          status?: 'draft' | 'created' | 'sent' | 'paid'
+          status?: 'draft' | 'created' | 'sent' | 'reminded' | 'paid' | 'cancelled'
           invoice_number?: string | null
           invoice_date?: string | null
           due_date?: string | null
@@ -197,6 +208,7 @@ export interface Database {
           invoice_file_reference?: string | null
           pdf_url?: string | null
           xml_url?: string | null
+          recipient_email?: string | null
           created_at?: string
           updated_at?: string
           finalized_at?: string | null
@@ -230,6 +242,41 @@ export interface Database {
           key_hash?: string
           key_prefix?: string
           last_used_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      products: {
+        Row: {
+          id: string
+          company_id: string
+          name: string
+          description: string | null
+          unit: string
+          unit_price: number
+          default_vat_rate: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          name: string
+          description?: string | null
+          unit?: string
+          unit_price?: number
+          default_vat_rate?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          name?: string
+          description?: string | null
+          unit?: string
+          unit_price?: number
+          default_vat_rate?: number
           created_at?: string
           updated_at?: string
         }

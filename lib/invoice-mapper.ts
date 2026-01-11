@@ -12,18 +12,22 @@ export function mapDBInvoiceToPDFInvoice(
 ): PDFInvoice {
   const lineItems = (dbInvoice.line_items as unknown as LineItem[]) || []
   
-  // Calculate tax rate from line items (assuming all items have same rate)
-  const taxRate = lineItems.length > 0 && lineItems[0].vat_rate ? lineItems[0].vat_rate : 19
+  // Calculate default tax rate from line items
+  // Use proper check for undefined/null (0 is a valid rate!)
+  const defaultTaxRate = lineItems.length > 0 && lineItems[0].vat_rate !== undefined && lineItems[0].vat_rate !== null
+    ? lineItems[0].vat_rate 
+    : 19
 
-  // Map line items
+  // Map line items with individual VAT rates
   const items = lineItems.map((item) => ({
     description: item.description,
     quantity: item.quantity,
-    unit: 'stück', // Default unit (lowercase for ZUGFeRD mapping), could be stored in line_items if needed
+    unit: item.unit || 'piece', // Use unit from line item or default to piece
     unitPrice: item.unit_price,
+    vatRate: item.vat_rate !== undefined && item.vat_rate !== null ? item.vat_rate : defaultTaxRate,
   }))
 
-  // Map issuer/seller
+  // Map issuer/seller including contact for XRechnung BR-DE-2
   const seller = issuerSnapshot
     ? {
         name: issuerSnapshot.name,
@@ -38,6 +42,12 @@ export function mapDBInvoiceToPDFInvoice(
         phoneNumber: undefined,
         taxNumber: issuerSnapshot.tax_id,
         vatId: issuerSnapshot.vat_id,
+        // XRechnung BR-DE-2: Seller Contact (required)
+        contact: issuerSnapshot.contact ? {
+          name: issuerSnapshot.contact.name,
+          phone: issuerSnapshot.contact.phone,
+          email: issuerSnapshot.contact.email,
+        } : undefined,
       }
     : {
         name: '',
@@ -52,6 +62,7 @@ export function mapDBInvoiceToPDFInvoice(
         phoneNumber: undefined,
         taxNumber: undefined,
         vatId: undefined,
+        contact: undefined,
       }
 
   // Map customer
@@ -83,11 +94,13 @@ export function mapDBInvoiceToPDFInvoice(
     seller,
     customer,
     items,
-    taxRate,
+    taxRate: defaultTaxRate, // Default rate for backwards compatibility
     currency: 'EUR',
     note: undefined,
     logoUrl: companyLogoUrl || undefined,
     bankDetails,
+    // XRechnung BR-DE-15: Buyer Reference (uses invoice number as fallback)
+    buyerReference: dbInvoice.invoice_number || undefined,
   }
 }
 

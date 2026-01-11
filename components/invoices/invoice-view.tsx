@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { Invoice, Company, CustomerSnapshot, LineItem } from '@/types'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
+import { Button } from '@/components/ui/button'
+import { FileText, FileCode } from 'lucide-react'
 
 interface InvoiceViewProps {
   invoice: Invoice
@@ -10,9 +13,50 @@ interface InvoiceViewProps {
 }
 
 export default function InvoiceView({ invoice, company }: InvoiceViewProps) {
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
+  const [isDownloadingXml, setIsDownloadingXml] = useState(false)
+  
   const customerSnapshot = invoice.customer_snapshot as unknown as CustomerSnapshot
   const lineItems = invoice.line_items as unknown as LineItem[]
   const companyAddress = company?.address as any
+
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true)
+    try {
+      const response = await fetch(`/api/invoices/${invoice.id}/pdf`)
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Fehler beim Laden der PDF')
+      }
+      
+      window.open(data.pdf_url || data.url, '_blank')
+    } catch (err) {
+      console.error('Error downloading PDF:', err)
+    } finally {
+      setIsDownloadingPdf(false)
+    }
+  }
+
+  const handleDownloadXml = async () => {
+    setIsDownloadingXml(true)
+    try {
+      const response = await fetch(`/api/invoices/${invoice.id}/pdf`)
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Fehler beim Laden der XML')
+      }
+      
+      if (data.xml_url) {
+        window.open(data.xml_url, '_blank')
+      }
+    } catch (err) {
+      console.error('Error downloading XML:', err)
+    } finally {
+      setIsDownloadingXml(false)
+    }
+  }
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
@@ -175,16 +219,29 @@ export default function InvoiceView({ invoice, company }: InvoiceViewProps) {
         </div>
       </div>
 
-      {invoice.invoice_file_reference && (
+      {(invoice.pdf_url || invoice.invoice_file_reference || invoice.xml_url) && (
         <div className="mt-8 border-t border-zinc-200 pt-8 dark:border-zinc-700">
-          <a
-            href={invoice.invoice_file_reference}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-black dark:hover:bg-zinc-200"
-          >
-            PDF herunterladen
-          </a>
+          <div className="flex gap-3">
+            {(invoice.pdf_url || invoice.invoice_file_reference) && (
+              <Button
+                onClick={handleDownloadPdf}
+                disabled={isDownloadingPdf}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                {isDownloadingPdf ? 'Lädt...' : 'PDF herunterladen'}
+              </Button>
+            )}
+            {invoice.xml_url && (
+              <Button
+                variant="outline"
+                onClick={handleDownloadXml}
+                disabled={isDownloadingXml}
+              >
+                <FileCode className="h-4 w-4 mr-2" />
+                {isDownloadingXml ? 'Lädt...' : 'XML herunterladen (XRechnung/ZUGFeRD)'}
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>

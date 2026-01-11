@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { ApiKey } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { LoaderCircle, Plus, Copy, Trash2, RotateCw, Check } from 'lucide-react'
+import { LoaderCircle, Plus, Copy, Trash2, RotateCw, Check, BookOpen } from 'lucide-react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -423,6 +424,19 @@ export default function ApiKeysSection({ companyId }: ApiKeysSectionProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* API Documentation Link */}
+      <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--border-default)' }}>
+        <Link
+          href="/api/docs"
+          className="inline-flex items-center gap-2 text-sm transition-colors hover:opacity-80"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <BookOpen className="h-4 w-4" />
+          API-Dokumentation ansehen
+          <span className="text-xs">→</span>
+        </Link>
+      </div>
     </>
   )
 }

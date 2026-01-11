@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { validateInvoiceForFinalization, formatValidationErrors } from '@/lib/invoice-validation'
 
 interface DraftEditorProps {
   draft: Invoice
@@ -220,28 +221,28 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
   }
 
   const handleFinalize = async () => {
-    // Validate
-    if (!customerSnapshot) {
-      setError('Bitte wählen Sie einen Kunden aus.')
-      return
-    }
+    setError(null)
 
-    if (lineItems.length === 0) {
-      setError('Bitte fügen Sie mindestens eine Position hinzu.')
-      return
-    }
+    // Comprehensive validation according to §14 UStG
+    const validationResult = validateInvoiceForFinalization({
+      company,
+      issuerSnapshot: customIssuer,
+      customerSnapshot,
+      lineItems,
+      invoiceDate: draft.invoice_date,
+      useDefaultIssuer,
+    })
 
-    if (!draft.invoice_date) {
-      setError('Bitte geben Sie ein Rechnungsdatum ein.')
+    if (!validationResult.isValid) {
+      setError(formatValidationErrors(validationResult.errors))
       return
     }
 
     setIsFinalizing(true)
-    setError(null)
 
     try {
-      // Get company for invoice number format
-      const { data: company } = await supabase
+      // Reload company to ensure we have latest data
+      const { data: latestCompany } = await supabase
         .from('companies')
         .select('*')
         .eq('id', draft.company_id)
@@ -265,7 +266,7 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
         }
       }
 
-      const prefix = company?.invoice_number_prefix || 'INV'
+      const prefix = latestCompany?.invoice_number_prefix || 'INV'
       const invoiceNumber = `${prefix}-${nextNumber.toString().padStart(4, '0')}`
 
       // Calculate final totals
@@ -275,14 +276,14 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
 
       // Get issuer snapshot - if using default, create snapshot from company data
       let finalIssuerSnapshot: IssuerSnapshot | null = null
-      if (useDefaultIssuer && company) {
-        const address = company.address as Address
-        const bankDetails = (company.bank_details as any) || {}
+      if (useDefaultIssuer && latestCompany) {
+        const address = latestCompany.address as Address
+        const bankDetails = (latestCompany.bank_details as any) || {}
         finalIssuerSnapshot = {
-          name: company.name,
+          name: latestCompany.name,
           address: address,
-          vat_id: company.vat_id || undefined,
-          tax_id: company.tax_id || undefined,
+          vat_id: latestCompany.vat_id || undefined,
+          tax_id: latestCompany.tax_id || undefined,
           bank_details: bankDetails.bank_name || bankDetails.iban || bankDetails.bic || bankDetails.account_holder
             ? {
                 bank_name: bankDetails.bank_name || undefined,
@@ -466,7 +467,7 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
 
           <div>
             <h2 className="mb-4 text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>Positionen</h2>
-            <LineItemsEditor lineItems={lineItems} onChange={handleLineItemsChange} />
+            <LineItemsEditor companyId={draft.company_id} lineItems={lineItems} onChange={handleLineItemsChange} />
             
             {lineItems.length > 0 && (() => {
               const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0)

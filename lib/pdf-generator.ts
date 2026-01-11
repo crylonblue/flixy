@@ -242,11 +242,27 @@ export async function generateInvoicePDF(invoice: Invoice): Promise<Uint8Array> 
     color: black,
   });
 
+  // Calculate VAT per rate (supports multiple VAT rates)
+  const vatByRate = new Map<number, { basis: number; tax: number }>();
+  let totalTax = 0;
+  
+  for (const item of invoice.items) {
+    const itemNet = item.quantity * item.unitPrice;
+    const itemVatRate = item.vatRate ?? invoice.taxRate; // Use item rate or fallback
+    const itemTax = itemNet * (itemVatRate / 100);
+    totalTax += itemTax;
+    
+    const existing = vatByRate.get(itemVatRate) || { basis: 0, tax: 0 };
+    vatByRate.set(itemVatRate, {
+      basis: existing.basis + itemNet,
+      tax: existing.tax + itemTax,
+    });
+  }
+  
+  const grossTotal = netTotal + totalTax;
+
   // Totals
   y -= 20;
-  const taxAmount = netTotal * (invoice.taxRate / 100);
-  const grossTotal = netTotal + taxAmount;
-
   drawText("Nettobetrag:", 350, y);
   // Right-align netTotal
   const netTotalText = formatCurrency(netTotal);
@@ -254,13 +270,17 @@ export async function generateInvoicePDF(invoice: Invoice): Promise<Uint8Array> 
   const netTotalWidth = helvetica.widthOfTextAtSize(sanitizedNetTotalText, 10);
   drawText(netTotalText, colRightEdges.total - netTotalWidth, y);
 
-  y -= 18;
-  drawText(`MwSt. (${invoice.taxRate}%):`, 350, y);
-  // Right-align taxAmount
-  const taxAmountText = formatCurrency(taxAmount);
-  const sanitizedTaxAmountText = sanitizeText(taxAmountText);
-  const taxAmountWidth = helvetica.widthOfTextAtSize(sanitizedTaxAmountText, 10);
-  drawText(taxAmountText, colRightEdges.total - taxAmountWidth, y);
+  // Show VAT lines per rate
+  const sortedVatRates = Array.from(vatByRate.entries()).sort((a, b) => a[0] - b[0]);
+  for (const [rate, amounts] of sortedVatRates) {
+    y -= 18;
+    drawText(`MwSt. (${rate}%):`, 350, y);
+    // Right-align taxAmount
+    const taxAmountText = formatCurrency(amounts.tax);
+    const sanitizedTaxAmountText = sanitizeText(taxAmountText);
+    const taxAmountWidth = helvetica.widthOfTextAtSize(sanitizedTaxAmountText, 10);
+    drawText(taxAmountText, colRightEdges.total - taxAmountWidth, y);
+  }
 
   y -= 10;
   page.drawLine({

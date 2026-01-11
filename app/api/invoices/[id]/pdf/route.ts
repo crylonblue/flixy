@@ -20,7 +20,7 @@ export async function GET(
   // Get the invoice
   const { data: invoice, error } = await supabase
     .from('invoices')
-    .select('id, company_id, pdf_url, invoice_file_reference')
+    .select('id, company_id, pdf_url, xml_url, invoice_file_reference')
     .eq('id', id)
     .single()
 
@@ -40,15 +40,22 @@ export async function GET(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const fileUrl = invoice.pdf_url || invoice.invoice_file_reference
+  const pdfFileUrl = invoice.pdf_url || invoice.invoice_file_reference
+  const xmlFileUrl = invoice.xml_url
 
-  if (!fileUrl) {
+  if (!pdfFileUrl) {
     return NextResponse.json({ error: 'No PDF available' }, { status: 404 })
   }
 
   try {
-    const presignedUrl = await getPresignedUrl(fileUrl)
-    return NextResponse.json({ url: presignedUrl })
+    const pdfPresignedUrl = await getPresignedUrl(pdfFileUrl)
+    const xmlPresignedUrl = xmlFileUrl ? await getPresignedUrl(xmlFileUrl) : null
+    
+    return NextResponse.json({ 
+      url: pdfPresignedUrl,
+      pdf_url: pdfPresignedUrl,
+      xml_url: xmlPresignedUrl 
+    })
   } catch (err) {
     console.error('Error generating presigned URL:', err)
     return NextResponse.json(

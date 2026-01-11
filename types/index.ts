@@ -24,6 +24,10 @@ export type ApiKey = Database['public']['Tables']['api_keys']['Row']
 export type ApiKeyInsert = Database['public']['Tables']['api_keys']['Insert']
 export type ApiKeyUpdate = Database['public']['Tables']['api_keys']['Update']
 
+export type Product = Database['public']['Tables']['products']['Row']
+export type ProductInsert = Database['public']['Tables']['products']['Insert']
+export type ProductUpdate = Database['public']['Tables']['products']['Update']
+
 // Helper types for address
 export interface Address {
   street: string
@@ -36,8 +40,10 @@ export interface Address {
 // Helper types for line items
 export interface LineItem {
   id: string
+  product_id?: string
   description: string
   quantity: number
+  unit: string
   unit_price: number
   vat_rate: number
   total: number
@@ -64,5 +70,39 @@ export interface IssuerSnapshot {
     bic?: string
     account_holder?: string
   }
+  contact?: {
+    name?: string
+    phone?: string
+    email?: string
+  }
+}
+
+// Helper type for DNS record
+export interface DnsRecord {
+  type: string
+  host: string
+  value: string
+  verified?: boolean
+}
+
+// Helper type for email settings (Postmark integration)
+export interface EmailSettings {
+  mode: 'default' | 'custom_domain'
+  reply_to_email?: string
+  reply_to_name?: string
+  // Custom domain fields
+  custom_domain?: string
+  from_email?: string
+  from_name?: string
+  domain_verified?: boolean
+  domain_verified_at?: string
+  postmark_domain_id?: number
+  dns_records?: {
+    dkim?: DnsRecord
+    return_path?: DnsRecord
+  }
+  // Invoice email template fields
+  invoice_email_subject?: string
+  invoice_email_body?: string
 }
 

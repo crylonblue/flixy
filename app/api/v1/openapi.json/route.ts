@@ -62,8 +62,10 @@ const openApiSpec = {
         type: 'object',
         properties: {
           id: { type: 'string', format: 'uuid' },
+          product_id: { type: 'string', format: 'uuid', nullable: true, description: 'Referenz zur Produktvorlage' },
           description: { type: 'string', example: 'Beratungsleistung' },
           quantity: { type: 'number', example: 10 },
+          unit: { type: 'string', example: 'hour', description: 'Einheit (piece, hour, day, etc.)' },
           unit_price: { type: 'number', example: 100 },
           vat_rate: { type: 'number', example: 19 },
           total: { type: 'number', example: 1000 },
@@ -96,8 +98,10 @@ const openApiSpec = {
             items: {
               type: 'object',
               properties: {
+                product_id: { type: 'string', format: 'uuid', description: 'Optional: ID einer Produktvorlage' },
                 description: { type: 'string' },
                 quantity: { type: 'number', default: 1 },
+                unit: { type: 'string', default: 'piece', description: 'Einheit (piece, hour, day, etc.)' },
                 unit_price: { type: 'number' },
                 vat_rate: { type: 'number', default: 19 },
               },
@@ -121,8 +125,9 @@ const openApiSpec = {
           subtotal: { type: 'number' },
           vat_amount: { type: 'number' },
           total_amount: { type: 'number' },
+          recipient_email: { type: 'string', format: 'email', nullable: true, description: 'E-Mail-Adresse für Rechnungsversand' },
           pdf_url: { type: 'string', nullable: true },
-          xml_url: { type: 'string', nullable: true },
+          xml_url: { type: 'string', nullable: true, description: 'XRechnung/ZUGFeRD XML (EN 16931)' },
           finalized_at: { type: 'string', format: 'date-time', nullable: true },
           created_at: { type: 'string', format: 'date-time' },
           updated_at: { type: 'string', format: 'date-time' },
@@ -133,6 +138,40 @@ const openApiSpec = {
         properties: {
           error: { type: 'string' },
           code: { type: 'string', enum: ['UNAUTHORIZED', 'FORBIDDEN', 'NOT_FOUND', 'VALIDATION_ERROR', 'SERVER_ERROR'] },
+        },
+      },
+      Product: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          company_id: { type: 'string', format: 'uuid' },
+          name: { type: 'string', example: 'Beratungsleistung' },
+          description: { type: 'string', nullable: true, example: 'Professionelle IT-Beratung' },
+          unit: { type: 'string', example: 'hour', description: 'Einheit (piece, hour, day, etc.)' },
+          unit_price: { type: 'number', example: 120 },
+          default_vat_rate: { type: 'number', example: 19 },
+          created_at: { type: 'string', format: 'date-time' },
+          updated_at: { type: 'string', format: 'date-time' },
+        },
+      },
+      ProductCreate: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', example: 'Beratungsleistung' },
+          description: { type: 'string', example: 'Professionelle IT-Beratung' },
+          unit: { type: 'string', default: 'piece', description: 'Einheit (piece, hour, day, etc.)' },
+          unit_price: { type: 'number', default: 0 },
+          default_vat_rate: { type: 'number', default: 19 },
+        },
+      },
+      SendInvoiceRequest: {
+        type: 'object',
+        required: ['recipient_email'],
+        properties: {
+          recipient_email: { type: 'string', format: 'email', example: 'kunde@beispiel.de' },
+          subject: { type: 'string', example: 'Rechnung INV-0001', description: 'E-Mail-Betreff (optional, wird aus Vorlage generiert)' },
+          body: { type: 'string', description: 'E-Mail-Text (optional, wird aus Vorlage generiert)' },
         },
       },
     },
@@ -279,7 +318,7 @@ const openApiSpec = {
       post: {
         tags: ['Drafts'],
         summary: 'Entwurf finalisieren',
-        description: 'Generiert PDF und XML, lädt zu S3 hoch und setzt Status auf "created".',
+        description: 'Generiert PDF (mit eingebetteter ZUGFeRD-XML) und separate XRechnung/ZUGFeRD-XML (EN 16931), lädt zu S3 hoch und setzt Status auf "created".',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: {
           '200': {
@@ -361,7 +400,7 @@ const openApiSpec = {
       get: {
         tags: ['Invoices'],
         summary: 'PDF Download URL',
-        description: 'Gibt presigned URLs für PDF und XML zurück (1 Stunde gültig).',
+        description: 'Gibt presigned URLs für PDF (mit eingebetteter ZUGFeRD-XML) und separate XRechnung/ZUGFeRD-XML zurück (1 Stunde gültig).',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: {
           '200': {
@@ -384,11 +423,126 @@ const openApiSpec = {
         },
       },
     },
+    '/invoices/{id}/send': {
+      post: {
+        tags: ['Invoices'],
+        summary: 'Rechnung per E-Mail versenden',
+        description: 'Versendet die Rechnung mit PDF und XRechnung/ZUGFeRD-XML als Anhang per E-Mail. Setzt den Status auf "sent".',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/SendInvoiceRequest' } } },
+        },
+        responses: {
+          '200': {
+            description: 'Erfolgreich versendet',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    message: { type: 'string', example: 'Rechnung wurde versendet' },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Versand nicht möglich (z.B. Entwurf oder keine PDF)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '404': { description: 'Nicht gefunden', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/products': {
+      get: {
+        tags: ['Products'],
+        summary: 'Liste aller Produktvorlagen',
+        responses: {
+          '200': {
+            description: 'Erfolgreich',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    data: { type: 'array', items: { $ref: '#/components/schemas/Product' } },
+                    count: { type: 'integer' },
+                  },
+                },
+              },
+            },
+          },
+          '401': { description: 'Nicht autorisiert', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+      post: {
+        tags: ['Products'],
+        summary: 'Produktvorlage erstellen',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ProductCreate' } } },
+        },
+        responses: {
+          '201': {
+            description: 'Erstellt',
+            content: { 'application/json': { schema: { type: 'object', properties: { data: { $ref: '#/components/schemas/Product' } } } } },
+          },
+          '400': { description: 'Validierungsfehler', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          '401': { description: 'Nicht autorisiert', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/products/{id}': {
+      get: {
+        tags: ['Products'],
+        summary: 'Einzelne Produktvorlage abrufen',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          '200': { description: 'Erfolgreich', content: { 'application/json': { schema: { type: 'object', properties: { data: { $ref: '#/components/schemas/Product' } } } } } },
+          '404': { description: 'Nicht gefunden', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+      patch: {
+        tags: ['Products'],
+        summary: 'Produktvorlage aktualisieren',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  description: { type: 'string' },
+                  unit: { type: 'string' },
+                  unit_price: { type: 'number' },
+                  default_vat_rate: { type: 'number' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'Erfolgreich', content: { 'application/json': { schema: { type: 'object', properties: { data: { $ref: '#/components/schemas/Product' } } } } } },
+          '404': { description: 'Nicht gefunden', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+      delete: {
+        tags: ['Products'],
+        summary: 'Produktvorlage löschen',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          '200': { description: 'Erfolgreich', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' } } } } } },
+          '404': { description: 'Nicht gefunden', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
   },
   tags: [
     { name: 'Customers', description: 'Kundenverwaltung' },
     { name: 'Drafts', description: 'Rechnungsentwürfe' },
     { name: 'Invoices', description: 'Fertige Rechnungen' },
+    { name: 'Products', description: 'Produktvorlagen für wiederkehrende Positionen' },
   ],
 }
 

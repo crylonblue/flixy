@@ -5,6 +5,7 @@ import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { generateXRechnungXML } from '@/lib/zugferd-generator'
 import { uploadToS3 } from '@/lib/s3'
 import { mapDBInvoiceToPDFInvoice } from '@/lib/invoice-mapper'
+import { validateXRechnungInvoice } from '@/lib/schema'
 import type { Invoice as DBInvoice, IssuerSnapshot, CustomerSnapshot } from '@/types'
 
 /**
@@ -64,6 +65,12 @@ export async function POST(
       bic: (company.bank_details as any).bic,
       account_holder: (company.bank_details as any).account_holder,
     } : undefined,
+    // XRechnung BR-DE-2: Seller Contact
+    contact: (company.contact_name || company.contact_phone || company.contact_email) ? {
+      name: company.contact_name || undefined,
+      phone: company.contact_phone || undefined,
+      email: company.contact_email || undefined,
+    } : undefined,
   }
 
   // Generate invoice number if not set
@@ -109,6 +116,17 @@ export async function POST(
     customerSnapshot,
     company?.logo_url
   )
+
+  // Validate invoice for XRechnung compliance before generating
+  const validation = validateXRechnungInvoice(pdfInvoice)
+  if (!validation.valid) {
+    return badRequest(`XRechnung-Validierung fehlgeschlagen: ${validation.errors.join(', ')}`)
+  }
+  
+  // Log warnings but don't block finalization
+  if (validation.warnings.length > 0) {
+    console.log('XRechnung validation warnings:', validation.warnings)
+  }
 
   // Generate PDF with embedded ZUGFeRD
   let pdfBuffer: Uint8Array

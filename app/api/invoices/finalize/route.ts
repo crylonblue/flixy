@@ -4,6 +4,7 @@ import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { generateXRechnungXML } from '@/lib/zugferd-generator'
 import { uploadToS3 } from '@/lib/s3'
 import { mapDBInvoiceToPDFInvoice } from '@/lib/invoice-mapper'
+import { validateXRechnungInvoice } from '@/lib/schema'
 import type { Invoice as DBInvoice, IssuerSnapshot, CustomerSnapshot } from '@/types'
 
 export async function POST(request: NextRequest) {
@@ -73,6 +74,12 @@ export async function POST(request: NextRequest) {
         bic: (company.bank_details as any).bic,
         account_holder: (company.bank_details as any).account_holder,
       } : undefined,
+      // XRechnung BR-DE-2: Seller Contact
+      contact: (company.contact_name || company.contact_phone || company.contact_email) ? {
+        name: company.contact_name || undefined,
+        phone: company.contact_phone || undefined,
+        email: company.contact_email || undefined,
+      } : undefined,
     } : null
 
     // Map database invoice to PDF invoice format
@@ -82,6 +89,23 @@ export async function POST(request: NextRequest) {
       customerSnapshot,
       company?.logo_url
     )
+
+    // Validate invoice for XRechnung compliance before generating
+    const validation = validateXRechnungInvoice(pdfInvoice)
+    if (!validation.valid) {
+      return NextResponse.json(
+        { 
+          error: 'XRechnung-Validierung fehlgeschlagen',
+          details: validation.errors,
+        },
+        { status: 400 }
+      )
+    }
+    
+    // Log warnings but don't block finalization
+    if (validation.warnings.length > 0) {
+      console.log('XRechnung validation warnings:', validation.warnings)
+    }
 
     // Generate PDF with embedded ZUGFeRD
     const pdfBuffer = await generateInvoicePDF(pdfInvoice)
@@ -122,13 +146,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Update invoice with file URLs and set status to 'created' after successful upload
+    // Also set recipient_email from customer if available and not already set
+    const updateData: Record<string, unknown> = {
+      status: 'created', // Set to created only after successful upload
+      pdf_url: pdfUrl,
+      xml_url: xmlUrl,
+    }
+    
+    // Set recipient email from customer snapshot if not already set
+    if (!dbInvoice.recipient_email && customerSnapshot?.email) {
+      updateData.recipient_email = customerSnapshot.email
+    }
+
     const { error: updateError } = await supabase
       .from('invoices')
-      .update({
-        status: 'created', // Set to created only after successful upload
-        pdf_url: pdfUrl,
-        xml_url: xmlUrl,
-      })
+      .update(updateData)
       .eq('id', invoiceId)
 
     if (updateError) {
