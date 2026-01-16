@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { validateApiKey, unauthorized, notFound, badRequest, serverError, json } from '../../../_lib/auth'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { generateXRechnungXML } from '@/lib/zugferd-generator'
@@ -26,7 +26,7 @@ export async function POST(
   if (!auth) return unauthorized()
 
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   // Fetch the draft
   const { data: invoice, error: invoiceError } = await supabase

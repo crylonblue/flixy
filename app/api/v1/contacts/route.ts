@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { validateApiKey, unauthorized, badRequest, serverError, json } from '../_lib/auth'
 
 /**
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const auth = await validateApiKey(request)
   if (!auth) return unauthorized()
 
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   // Get query params for filtering
   const { searchParams } = new URL(request.url)
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     return badRequest('address with street, city, zip, and country is required')
   }
 
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   const { data, error } = await supabase
     .from('contacts')

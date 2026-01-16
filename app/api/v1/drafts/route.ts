@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { validateApiKey, unauthorized, badRequest, serverError, json } from '../_lib/auth'
 
 /**
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const auth = await validateApiKey(request)
   if (!auth) return unauthorized()
 
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   const { data, error } = await supabase
     .from('invoices')
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     invoice_number, // For external sellers
   } = body
 
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   // Determine seller
   const seller_is_self = !seller_contact_id

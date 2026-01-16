@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { validateApiKey, unauthorized, notFound, badRequest, serverError, json } from '../../../_lib/auth'
 import { downloadFromS3 } from '@/lib/s3'
 import { sendEmail, getDefaultFromEmail } from '@/lib/postmark'
@@ -18,7 +18,7 @@ export async function POST(
   if (!auth) return unauthorized()
 
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   // Get the invoice
   const { data: invoice, error: invoiceError } = await supabase

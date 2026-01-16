@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { validateApiKey, unauthorized, notFound, badRequest, serverError, json } from '../../_lib/auth'
 
 const VALID_STATUSES = ['created', 'sent', 'reminded', 'paid', 'cancelled']
@@ -16,7 +16,7 @@ export async function GET(
   if (!auth) return unauthorized()
 
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   const { data, error } = await supabase
     .from('invoices')
@@ -63,7 +63,7 @@ export async function PATCH(
     return badRequest(`Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`)
   }
 
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   // First check if invoice exists and belongs to company
   const { data: existing } = await supabase

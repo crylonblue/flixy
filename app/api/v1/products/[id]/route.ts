@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { validateApiKey, unauthorized, notFound, badRequest, serverError, json } from '../../_lib/auth'
 
 /**
@@ -14,7 +14,7 @@ export async function GET(
   if (!auth) return unauthorized()
 
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   const { data, error } = await supabase
     .from('products')
@@ -57,7 +57,7 @@ export async function PATCH(
     return badRequest('Invalid JSON body')
   }
 
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   // First check if product exists and belongs to company
   const { data: existing } = await supabase
@@ -129,7 +129,7 @@ export async function DELETE(
   if (!auth) return unauthorized()
 
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   // First check if product exists and belongs to company
   const { data: existing } = await supabase
