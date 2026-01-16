@@ -12,11 +12,21 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createClient()
 
-  const { data, error } = await supabase
+  // Get query params for filtering
+  const { searchParams } = new URL(request.url)
+  const search = searchParams.get('search')
+
+  let query = supabase
     .from('contacts')
     .select('*')
     .eq('company_id', auth.companyId)
-    .order('name')
+
+  // Filter by name if search term provided (case-insensitive partial match)
+  if (search) {
+    query = query.ilike('name', `%${search}%`)
+  }
+
+  const { data, error } = await query.order('name')
 
   if (error) {
     return serverError(error.message)

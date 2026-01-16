@@ -209,6 +209,14 @@ const openApiSpec = {
       get: {
         tags: ['Contacts'],
         summary: 'Liste aller Kontakte',
+        parameters: [
+          {
+            name: 'search',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Kontakte nach Name filtern (teilweise Übereinstimmung, Groß-/Kleinschreibung wird ignoriert)',
+          },
+        ],
         responses: {
           '200': {
             description: 'Erfolgreich',
