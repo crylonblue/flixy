@@ -84,7 +84,8 @@ const openApiSpec = {
           unit: { type: 'string', example: 'hour', description: 'Einheit (piece, hour, day, etc.)' },
           unit_price: { type: 'number', example: 100 },
           vat_rate: { type: 'number', example: 19 },
-          total: { type: 'number', example: 1000 },
+          total: { type: 'number', example: 1000, description: 'Netto-Summe (quantity × unit_price)' },
+          vat_amount: { type: 'number', example: 190, description: 'MwSt.-Betrag der Position (total × vat_rate / 100)' },
         },
       },
       Draft: {

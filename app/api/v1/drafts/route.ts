@@ -154,14 +154,25 @@ export async function POST(request: NextRequest) {
   }
 
   // Process line items - add IDs and calculate totals
-  const processedLineItems = (line_items || []).map((item: any) => ({
-    id: item.id || crypto.randomUUID(),
-    description: item.description || '',
-    quantity: item.quantity || 1,
-    unit_price: item.unit_price || 0,
-    vat_rate: item.vat_rate ?? 19,
-    total: (item.quantity || 1) * (item.unit_price || 0),
-  }))
+  const processedLineItems = (line_items || []).map((item: any) => {
+    const quantity = item.quantity || 1
+    const unitPrice = item.unit_price || 0
+    const vatRate = item.vat_rate ?? 19
+    const total = quantity * unitPrice
+    const vatAmount = total * vatRate / 100
+    
+    return {
+      id: item.id || crypto.randomUUID(),
+      product_id: item.product_id || null,
+      description: item.description || '',
+      quantity,
+      unit: item.unit || 'piece',
+      unit_price: unitPrice,
+      vat_rate: vatRate,
+      total,
+      vat_amount: vatAmount,
+    }
+  })
 
   // Calculate totals
   const subtotal = processedLineItems.reduce((sum: number, item: any) => sum + item.total, 0)

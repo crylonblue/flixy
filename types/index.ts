@@ -47,6 +47,7 @@ export interface LineItem {
   unit_price: number
   vat_rate: number
   total: number
+  vat_amount?: number
 }
 
 // Helper type for bank details
