@@ -79,12 +79,52 @@ export async function PATCH(
   // Build update object
   const updates: Record<string, any> = {}
 
+  // Check if we need company data (for "self" snapshots)
+  const effectiveBuyerContactId = buyer_contact_id !== undefined ? buyer_contact_id : customer_id
+  const needsCompanyData = 
+    (seller_contact_id !== undefined && (seller_contact_id === null || seller_contact_id === 'self')) ||
+    (effectiveBuyerContactId === 'self')
+
+  let company: any = null
+  if (needsCompanyData) {
+    const { data: companyData, error: companyError } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('id', auth.companyId)
+      .single()
+
+    if (companyError || !companyData) {
+      return serverError('Company not found')
+    }
+    company = companyData
+  }
+
   // Handle seller update
   if (seller_contact_id !== undefined) {
     if (seller_contact_id === null || seller_contact_id === 'self') {
+      // Build snapshot from company data
+      const bankDetails = company.bank_details as any
       updates.seller_is_self = true
       updates.seller_contact_id = null
-      updates.seller_snapshot = null
+      updates.seller_snapshot = {
+        name: company.name,
+        address: company.address,
+        email: company.contact_email || null,
+        vat_id: company.vat_id || null,
+        tax_id: company.tax_id || null,
+        invoice_number_prefix: company.invoice_number_prefix || null,
+        bank_details: bankDetails ? {
+          bank_name: bankDetails.bank_name,
+          iban: bankDetails.iban,
+          bic: bankDetails.bic,
+          account_holder: bankDetails.account_holder,
+        } : null,
+        contact: (company.contact_name || company.contact_phone || company.contact_email) ? {
+          name: company.contact_name || null,
+          phone: company.contact_phone || null,
+          email: company.contact_email || null,
+        } : null,
+      }
     } else {
       const { data: sellerContact, error: sellerError } = await supabase
         .from('contacts')
@@ -113,16 +153,21 @@ export async function PATCH(
   }
 
   // Handle buyer update (support legacy customer_id)
-  const effectiveBuyerContactId = buyer_contact_id !== undefined ? buyer_contact_id : customer_id
   if (effectiveBuyerContactId !== undefined) {
     if (effectiveBuyerContactId === null) {
       updates.buyer_is_self = false
       updates.buyer_contact_id = null
       updates.buyer_snapshot = null
     } else if (effectiveBuyerContactId === 'self') {
+      // Build snapshot from company data
       updates.buyer_is_self = true
       updates.buyer_contact_id = null
-      updates.buyer_snapshot = null
+      updates.buyer_snapshot = {
+        name: company.name,
+        address: company.address,
+        email: company.contact_email || null,
+        vat_id: company.vat_id || null,
+      }
     } else {
       const { data: buyerContact, error: buyerError } = await supabase
         .from('contacts')

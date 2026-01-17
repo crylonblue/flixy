@@ -58,11 +58,44 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceRoleClient()
 
+  // Fetch company data (needed for "self" snapshots)
+  const { data: company, error: companyError } = await supabase
+    .from('companies')
+    .select('*')
+    .eq('id', auth.companyId)
+    .single()
+
+  if (companyError || !company) {
+    return serverError('Company not found')
+  }
+
   // Determine seller
-  const seller_is_self = !seller_contact_id
-  let sellerSnapshot = null
+  const seller_is_self = !seller_contact_id || seller_contact_id === 'self'
+  let sellerSnapshot: any = null
   
-  if (!seller_is_self && seller_contact_id) {
+  if (seller_is_self) {
+    // Build snapshot from company data
+    const bankDetails = company.bank_details as any
+    sellerSnapshot = {
+      name: company.name,
+      address: company.address,
+      email: company.contact_email || null,
+      vat_id: company.vat_id || null,
+      tax_id: company.tax_id || null,
+      invoice_number_prefix: company.invoice_number_prefix || null,
+      bank_details: bankDetails ? {
+        bank_name: bankDetails.bank_name,
+        iban: bankDetails.iban,
+        bic: bankDetails.bic,
+        account_holder: bankDetails.account_holder,
+      } : null,
+      contact: (company.contact_name || company.contact_phone || company.contact_email) ? {
+        name: company.contact_name || null,
+        phone: company.contact_phone || null,
+        email: company.contact_email || null,
+      } : null,
+    }
+  } else {
     const { data: sellerContact, error: sellerError } = await supabase
       .from('contacts')
       .select('*')
@@ -89,9 +122,17 @@ export async function POST(request: NextRequest) {
   // Determine buyer (support legacy customer_id)
   const effectiveBuyerContactId = buyer_contact_id || customer_id
   const buyer_is_self = effectiveBuyerContactId === 'self' || effectiveBuyerContactId === auth.companyId
-  let buyerSnapshot = null
+  let buyerSnapshot: any = null
   
-  if (!buyer_is_self && effectiveBuyerContactId) {
+  if (buyer_is_self) {
+    // Build snapshot from company data
+    buyerSnapshot = {
+      name: company.name,
+      address: company.address,
+      email: company.contact_email || null,
+      vat_id: company.vat_id || null,
+    }
+  } else if (effectiveBuyerContactId) {
     const { data: buyerContact, error: buyerError } = await supabase
       .from('contacts')
       .select('*')
