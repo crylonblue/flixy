@@ -441,7 +441,7 @@ const openApiSpec = {
       get: {
         tags: ['Invoices'],
         summary: 'PDF Download URL',
-        description: 'Gibt presigned URLs für PDF (mit eingebetteter ZUGFeRD-XML) und separate XRechnung/ZUGFeRD-XML zurück (1 Stunde gültig).',
+        description: 'Gibt öffentliche URLs für PDF (mit eingebetteter ZUGFeRD-XML) und separate XRechnung/ZUGFeRD-XML zurück.',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: {
           '200': {
@@ -453,7 +453,6 @@ const openApiSpec = {
                   properties: {
                     pdf_url: { type: 'string', format: 'uri' },
                     xml_url: { type: 'string', format: 'uri', nullable: true },
-                    expires_in: { type: 'integer', example: 3600 },
                   },
                 },
               },

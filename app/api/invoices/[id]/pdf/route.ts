@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getPresignedUrl } from '@/lib/s3'
 
+/**
+ * GET /api/invoices/:id/pdf
+ * Get the public URLs for downloading the invoice PDF and XML
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -40,27 +43,15 @@ export async function GET(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const pdfFileUrl = invoice.pdf_url || invoice.invoice_file_reference
-  const xmlFileUrl = invoice.xml_url
+  const pdfUrl = invoice.pdf_url || invoice.invoice_file_reference
 
-  if (!pdfFileUrl) {
+  if (!pdfUrl) {
     return NextResponse.json({ error: 'No PDF available' }, { status: 404 })
   }
 
-  try {
-    const pdfPresignedUrl = await getPresignedUrl(pdfFileUrl)
-    const xmlPresignedUrl = xmlFileUrl ? await getPresignedUrl(xmlFileUrl) : null
-    
-    return NextResponse.json({ 
-      url: pdfPresignedUrl,
-      pdf_url: pdfPresignedUrl,
-      xml_url: xmlPresignedUrl 
-    })
-  } catch (err) {
-    console.error('Error generating presigned URL:', err)
-    return NextResponse.json(
-      { error: 'Failed to generate download URL' },
-      { status: 500 }
-    )
-  }
+  return NextResponse.json({ 
+    url: pdfUrl,
+    pdf_url: pdfUrl,
+    xml_url: invoice.xml_url || null,
+  })
 }

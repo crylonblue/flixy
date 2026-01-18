@@ -1,5 +1,4 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 function getS3Config() {
   const endpoint = process.env.S3_ENDPOINT
@@ -115,39 +114,6 @@ export async function uploadToS3(
 
   // Return the public URL
   return buildPublicUrl(key, config)
-}
-
-export async function getPresignedUrl(
-  fileUrl: string,
-  expiresIn: number = 3600 // Default 1 hour
-): Promise<string> {
-  const config = getS3Config()
-
-  // Configure S3Client
-  const s3ClientConfig: any = {
-    region: config.region,
-    credentials: {
-      accessKeyId: config.accessKeyId,
-      secretAccessKey: config.secretAccessKey,
-    },
-  }
-
-  if (config.endpoint) {
-    s3ClientConfig.endpoint = config.endpoint
-    s3ClientConfig.forcePathStyle = true
-  }
-
-  const s3Client = new S3Client(s3ClientConfig)
-
-  // Extract the key from the URL
-  const key = extractKeyFromUrl(fileUrl, config.bucketName)
-
-  const command = new GetObjectCommand({
-    Bucket: config.bucketName,
-    Key: key,
-  })
-
-  return getSignedUrl(s3Client, command, { expiresIn })
 }
 
 /**
