@@ -158,11 +158,12 @@ export async function POST(
   }
 
   // Map database invoice to PDF invoice format
+  // Only include company logo when the company is the seller
   const pdfInvoice = mapDBInvoiceToPDFInvoice(
     dbInvoice,
     sellerSnapshot,
     finalBuyerSnapshot,
-    company?.logo_url
+    dbInvoice.seller_is_self ? company?.logo_url : null
   )
 
   // Validate invoice for XRechnung compliance before generating

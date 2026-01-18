@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 function getS3Config() {
@@ -63,7 +63,7 @@ export async function uploadToS3(
 
   const s3Client = new S3Client(s3ClientConfig)
 
-  const key = `${userId}/${invoiceId}/${fileName}`
+  const key = `app/${userId}/${invoiceId}/${fileName}`
   
   const command = new PutObjectCommand({
     Bucket: config.bucketName,
@@ -167,6 +167,96 @@ export async function downloadFromS3(fileUrl: string): Promise<Buffer> {
   } catch (err) {
     console.error('[S3] Download failed:', err)
     throw err
+  }
+}
+
+/**
+ * Uploads a company logo to S3
+ * Logos are stored at logos/{companyId}/logo.{ext}
+ */
+export async function uploadLogoToS3(
+  companyId: string,
+  fileBuffer: Buffer | Uint8Array,
+  contentType: string
+): Promise<string> {
+  const config = getS3Config()
+  
+  // Configure S3Client for Cloudflare R2 or AWS S3
+  const s3ClientConfig: any = {
+    region: config.region,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+  }
+
+  // If custom endpoint is provided (e.g., Cloudflare R2), use it
+  if (config.endpoint) {
+    s3ClientConfig.endpoint = config.endpoint
+    s3ClientConfig.forcePathStyle = true // Required for Cloudflare R2
+  }
+
+  const s3Client = new S3Client(s3ClientConfig)
+
+  // Determine file extension from content type
+  const ext = contentType === 'image/png' ? 'png' : 'jpg'
+  const key = `logos/${companyId}/logo.${ext}`
+  
+  const command = new PutObjectCommand({
+    Bucket: config.bucketName,
+    Key: key,
+    Body: fileBuffer,
+    ContentType: contentType,
+  })
+
+  await s3Client.send(command)
+
+  // Return the URL - use custom endpoint if provided, otherwise use AWS S3 format
+  if (config.endpoint) {
+    // For Cloudflare R2: endpoint + /bucket-name/key
+    const endpointUrl = new URL(config.endpoint)
+    return `${endpointUrl.protocol}//${endpointUrl.host}/${config.bucketName}/${key}`
+  } else {
+    // For AWS S3: standard format
+    return `https://${config.bucketName}.s3.${config.region}.amazonaws.com/${key}`
+  }
+}
+
+/**
+ * Deletes a company logo from S3
+ */
+export async function deleteLogoFromS3(companyId: string): Promise<void> {
+  const config = getS3Config()
+  
+  const s3ClientConfig: any = {
+    region: config.region,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+  }
+
+  if (config.endpoint) {
+    s3ClientConfig.endpoint = config.endpoint
+    s3ClientConfig.forcePathStyle = true
+  }
+
+  const s3Client = new S3Client(s3ClientConfig)
+
+  // Try to delete both png and jpg versions
+  const extensions = ['png', 'jpg']
+  
+  for (const ext of extensions) {
+    const key = `logos/${companyId}/logo.${ext}`
+    try {
+      const command = new DeleteObjectCommand({
+        Bucket: config.bucketName,
+        Key: key,
+      })
+      await s3Client.send(command)
+    } catch {
+      // Ignore errors - file might not exist with this extension
+    }
   }
 }
 

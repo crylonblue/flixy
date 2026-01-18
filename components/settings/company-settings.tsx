@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import ApiKeysSection from './api-keys-section'
 import { DEFAULT_INVOICE_EMAIL_SUBJECT, DEFAULT_INVOICE_EMAIL_BODY, EMAIL_PLACEHOLDERS } from '@/lib/email-templates'
+import LogoUpload from './logo-upload'
 
 interface CompanySettingsProps {
   company: Company
@@ -373,6 +374,14 @@ export default function CompanySettings({ company: initialCompany }: CompanySett
                     required
                     className="mt-1.5"
                   />
+                </div>
+
+                {/* Logo Upload Section */}
+                <div className="pt-4 pb-2">
+                  <h2 className="mb-4 text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
+                    Firmenlogo
+                  </h2>
+                  <LogoUpload currentLogoUrl={initialCompany.logo_url} />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
