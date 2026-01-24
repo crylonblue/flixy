@@ -328,7 +328,7 @@ export function InvoiceFiltersToolbar({
                       dateFrom: null,
                       dateTo: null,
                     }))
-                    if (period.id !== "custom") setDatePopoverOpen(false)
+                    setDatePopoverOpen(false)
                   }}
                   className={cn(
                     "w-full text-left px-3 py-2 text-sm rounded-md transition-colors",
