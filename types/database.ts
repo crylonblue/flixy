@@ -29,6 +29,11 @@ export interface Database {
           contact_phone: string | null
           contact_email: string | null
           enable_english_invoices: boolean
+          default_intro_text: string | null
+          default_outro_text: string | null
+          court: string | null
+          register_number: string | null
+          managing_director: string | null
           created_at: string
           updated_at: string
         }
@@ -51,6 +56,11 @@ export interface Database {
           contact_phone?: string | null
           contact_email?: string | null
           enable_english_invoices?: boolean
+          default_intro_text?: string | null
+          default_outro_text?: string | null
+          court?: string | null
+          register_number?: string | null
+          managing_director?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -73,6 +83,11 @@ export interface Database {
           contact_phone?: string | null
           contact_email?: string | null
           enable_english_invoices?: boolean
+          default_intro_text?: string | null
+          default_outro_text?: string | null
+          court?: string | null
+          register_number?: string | null
+          managing_director?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -138,6 +153,12 @@ export interface Database {
           invoice_number_counter: number
           tax_id: string | null
           bank_details: Json | null
+          court: string | null
+          register_number: string | null
+          managing_director: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          contact_email: string | null
           created_at: string
           updated_at: string
         }
@@ -152,6 +173,12 @@ export interface Database {
           invoice_number_counter?: number
           tax_id?: string | null
           bank_details?: Json | null
+          court?: string | null
+          register_number?: string | null
+          managing_director?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          contact_email?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -166,6 +193,12 @@ export interface Database {
           invoice_number_counter?: number
           tax_id?: string | null
           bank_details?: Json | null
+          court?: string | null
+          register_number?: string | null
+          managing_director?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          contact_email?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -193,6 +226,9 @@ export interface Database {
           xml_url: string | null
           recipient_email: string | null
           language: string
+          intro_text: string | null
+          outro_text: string | null
+          buyer_reference: string | null
           created_at: string
           updated_at: string
           finalized_at: string | null
@@ -219,6 +255,9 @@ export interface Database {
           xml_url?: string | null
           recipient_email?: string | null
           language?: string
+          intro_text?: string | null
+          outro_text?: string | null
+          buyer_reference?: string | null
           created_at?: string
           updated_at?: string
           finalized_at?: string | null
@@ -245,6 +284,9 @@ export interface Database {
           xml_url?: string | null
           recipient_email?: string | null
           language?: string
+          intro_text?: string | null
+          outro_text?: string | null
+          buyer_reference?: string | null
           created_at?: string
           updated_at?: string
           finalized_at?: string | null

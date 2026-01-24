@@ -49,6 +49,14 @@ export default function ContactEditForm({ contact: initialContact, onClose }: Co
     bank_iban: bankDetails?.iban || '',
     bank_name: bankDetails?.bank_name || '',
     bank_bic: bankDetails?.bic || '',
+    // Legal info fields (for sellers)
+    court: initialContact?.court || '',
+    register_number: initialContact?.register_number || '',
+    managing_director: initialContact?.managing_director || '',
+    // Contact person fields (for XRechnung)
+    contact_name: initialContact?.contact_name || '',
+    contact_phone: initialContact?.contact_phone || '',
+    contact_email: initialContact?.contact_email || '',
   })
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -78,6 +86,12 @@ export default function ContactEditForm({ contact: initialContact, onClose }: Co
         bank_iban: bank?.iban || '',
         bank_name: bank?.bank_name || '',
         bank_bic: bank?.bic || '',
+        court: initialContact.court || '',
+        register_number: initialContact.register_number || '',
+        managing_director: initialContact.managing_director || '',
+        contact_name: initialContact.contact_name || '',
+        contact_phone: initialContact.contact_phone || '',
+        contact_email: initialContact.contact_email || '',
       })
     } else {
       setContact({
@@ -95,6 +109,12 @@ export default function ContactEditForm({ contact: initialContact, onClose }: Co
         bank_iban: '',
         bank_name: '',
         bank_bic: '',
+        court: '',
+        register_number: '',
+        managing_director: '',
+        contact_name: '',
+        contact_phone: '',
+        contact_email: '',
       })
     }
     setError(null)
@@ -145,6 +165,14 @@ export default function ContactEditForm({ contact: initialContact, onClose }: Co
             invoice_number_prefix: contact.canBeSeller ? contact.invoice_number_prefix || null : null,
             tax_id: contact.canBeSeller ? contact.tax_id || null : null,
             bank_details: contact.canBeSeller ? bankDetails : null,
+            // Legal info (only for sellers)
+            court: contact.canBeSeller ? contact.court || null : null,
+            register_number: contact.canBeSeller ? contact.register_number || null : null,
+            managing_director: contact.canBeSeller ? contact.managing_director || null : null,
+            // Contact person (only for sellers)
+            contact_name: contact.canBeSeller ? contact.contact_name || null : null,
+            contact_phone: contact.canBeSeller ? contact.contact_phone || null : null,
+            contact_email: contact.canBeSeller ? contact.contact_email || null : null,
           })
           .eq('id', initialContact.id)
 
@@ -197,6 +225,14 @@ export default function ContactEditForm({ contact: initialContact, onClose }: Co
             invoice_number_prefix: contact.canBeSeller ? contact.invoice_number_prefix || null : null,
             tax_id: contact.canBeSeller ? contact.tax_id || null : null,
             bank_details: contact.canBeSeller ? bankDetails : null,
+            // Legal info (only for sellers)
+            court: contact.canBeSeller ? contact.court || null : null,
+            register_number: contact.canBeSeller ? contact.register_number || null : null,
+            managing_director: contact.canBeSeller ? contact.managing_director || null : null,
+            // Contact person (only for sellers)
+            contact_name: contact.canBeSeller ? contact.contact_name || null : null,
+            contact_phone: contact.canBeSeller ? contact.contact_phone || null : null,
+            contact_email: contact.canBeSeller ? contact.contact_email || null : null,
           })
           .select()
           .single()
@@ -544,6 +580,110 @@ export default function ContactEditForm({ contact: initialContact, onClose }: Co
                     className="mt-1"
                     autoComplete="off"
                   />
+                </div>
+              </div>
+
+              {/* Legal Information Section */}
+              <div className="pt-4 mt-4 border-t" style={{ borderColor: 'var(--border-default)' }}>
+                <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-3">
+                  Rechtliche Angaben (für Rechnungsfußzeile)
+                </p>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="court" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Amtsgericht
+                    </Label>
+                    <Input
+                      id="court"
+                      type="text"
+                      value={contact.court}
+                      onChange={(e) => setContact({ ...contact, court: e.target.value })}
+                      className="mt-1"
+                      autoComplete="off"
+                      placeholder="z.B. Amtsgericht München"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="register_number" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Handelsregister-Nr.
+                    </Label>
+                    <Input
+                      id="register_number"
+                      type="text"
+                      value={contact.register_number}
+                      onChange={(e) => setContact({ ...contact, register_number: e.target.value })}
+                      className="mt-1"
+                      autoComplete="off"
+                      placeholder="z.B. HRB 123456"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="managing_director" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Geschäftsführer
+                    </Label>
+                    <Input
+                      id="managing_director"
+                      type="text"
+                      value={contact.managing_director}
+                      onChange={(e) => setContact({ ...contact, managing_director: e.target.value })}
+                      className="mt-1"
+                      autoComplete="off"
+                      placeholder="z.B. Max Mustermann"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Person Section */}
+              <div className="pt-4 mt-4 border-t" style={{ borderColor: 'var(--border-default)' }}>
+                <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  Ansprechpartner
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
+                  Für XRechnung-konforme Rechnungen
+                </p>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="contact_name" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Name
+                    </Label>
+                    <Input
+                      id="contact_name"
+                      type="text"
+                      value={contact.contact_name}
+                      onChange={(e) => setContact({ ...contact, contact_name: e.target.value })}
+                      className="mt-1"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="contact_phone" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        Telefon
+                      </Label>
+                      <Input
+                        id="contact_phone"
+                        type="tel"
+                        value={contact.contact_phone}
+                        onChange={(e) => setContact({ ...contact, contact_phone: e.target.value })}
+                        className="mt-1"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="contact_email" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        E-Mail
+                      </Label>
+                      <Input
+                        id="contact_email"
+                        type="email"
+                        value={contact.contact_email}
+                        onChange={(e) => setContact({ ...contact, contact_email: e.target.value })}
+                        className="mt-1"
+                        autoComplete="off"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

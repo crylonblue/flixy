@@ -77,6 +77,10 @@ export interface PartySnapshot {
   invoice_number_prefix?: string
   bank_details?: BankDetails
   contact?: ContactInfo
+  // Legal information for PDF footer (for sellers)
+  court?: string
+  register_number?: string
+  managing_director?: string
 }
 
 // Backward compatibility aliases

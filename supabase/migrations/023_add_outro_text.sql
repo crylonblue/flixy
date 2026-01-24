@@ -1,0 +1,3 @@
+-- Migration 023 is now a no-op since migration 022 already handles intro_text and outro_text
+-- This migration was originally created to add default_outro_text but 022 already adds it
+-- Keeping this file to maintain migration ordering

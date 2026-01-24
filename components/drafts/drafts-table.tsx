@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -9,6 +9,7 @@ import { useDraftDrawer } from '@/contexts/draft-drawer-context'
 import { Invoice } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { DraftFiltersToolbar } from './draft-filters'
 import {
   Table,
   TableBody,
@@ -40,6 +41,11 @@ export default function DraftsTable({ drafts, companyNames = {} }: DraftsTablePr
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [filteredDrafts, setFilteredDrafts] = useState<Invoice[]>(drafts)
+
+  const handleFilteredDraftsChange = useCallback((filtered: Invoice[]) => {
+    setFilteredDrafts(filtered)
+  }, [])
 
   const handleRowClick = (draftId: string, e: React.MouseEvent) => {
     // Don't open drawer if clicking on action buttons
@@ -87,18 +93,30 @@ export default function DraftsTable({ drafts, companyNames = {} }: DraftsTablePr
 
   return (
     <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Empfänger</TableHead>
-            <TableHead className="text-right">Betrag</TableHead>
-            <TableHead>Erstellt am</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="w-[100px]">Aktionen</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {drafts.map((draft) => {
+      <DraftFiltersToolbar
+        drafts={drafts}
+        onFilteredDraftsChange={handleFilteredDraftsChange}
+        companyNames={companyNames}
+      />
+
+      {filteredDrafts.length === 0 ? (
+        <div className="card card-subtle p-12 text-center">
+          <p className="text-secondary">Keine Entwürfe gefunden.</p>
+          <p className="text-meta mt-1">Versuchen Sie, die Filter anzupassen.</p>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Empfänger</TableHead>
+              <TableHead className="text-right">Betrag</TableHead>
+              <TableHead>Erstellt am</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="w-[100px]">Aktionen</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredDrafts.map((draft) => {
             const buyerSnapshot = draft.buyer_snapshot as any
             const total = draft.total_amount || 0
             const buyerName = draft.buyer_is_self 
@@ -143,8 +161,9 @@ export default function DraftsTable({ drafts, companyNames = {} }: DraftsTablePr
               </TableRow>
             )
           })}
-        </TableBody>
-      </Table>
+          </TableBody>
+        </Table>
+      )}
 
       <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
         setDeleteDialogOpen(open)

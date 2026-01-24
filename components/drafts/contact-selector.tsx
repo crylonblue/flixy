@@ -71,6 +71,7 @@ export default function ContactSelector({
   const handleSelectSelf = () => {
     if (company) {
       const companyAddress = company.address as any
+      const bankDetails = company.bank_details as any
       const snapshot: PartySnapshot = {
         name: company.name,
         address: {
@@ -81,6 +82,21 @@ export default function ContactSelector({
           country: companyAddress?.country || 'DE',
         },
         vat_id: company.vat_id || undefined,
+        tax_id: company.tax_id || undefined,
+        bank_details: bankDetails ? {
+          bank_name: bankDetails.bank_name,
+          iban: bankDetails.iban,
+          bic: bankDetails.bic,
+        } : undefined,
+        contact: (company.contact_name || company.contact_phone || company.contact_email) ? {
+          name: company.contact_name || undefined,
+          phone: company.contact_phone || undefined,
+          email: company.contact_email || undefined,
+        } : undefined,
+        // Legal info for PDF footer
+        court: (company as any).court || undefined,
+        register_number: (company as any).register_number || undefined,
+        managing_director: (company as any).managing_director || undefined,
       }
       onSelect(snapshot, true)
     } else {
@@ -111,6 +127,16 @@ export default function ContactSelector({
         iban: (contact.bank_details as any)?.iban,
         bic: (contact.bank_details as any)?.bic,
       } : undefined,
+      // Contact person for XRechnung (only for seller contacts)
+      contact: (contact.contact_name || contact.contact_phone || contact.contact_email) ? {
+        name: contact.contact_name || undefined,
+        phone: contact.contact_phone || undefined,
+        email: contact.contact_email || undefined,
+      } : undefined,
+      // Legal info for PDF footer (only for seller contacts)
+      court: contact.court || undefined,
+      register_number: contact.register_number || undefined,
+      managing_director: contact.managing_director || undefined,
     }
     onSelect(snapshot, false)
     setOpen(false)

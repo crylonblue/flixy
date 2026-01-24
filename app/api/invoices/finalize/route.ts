@@ -90,9 +90,14 @@ export async function POST(request: NextRequest) {
           phone: company.contact_phone || undefined,
           email: company.contact_email || undefined,
         } : undefined,
+        // Legal info for PDF footer
+        court: (company as any).court || undefined,
+        register_number: (company as any).register_number || undefined,
+        managing_director: (company as any).managing_director || undefined,
       }
     } else {
       // Use the seller_snapshot from the invoice (external contact)
+      // The snapshot should already contain legal info if the contact has it
       const existingSellerSnapshot = dbInvoice.seller_snapshot as PartySnapshot | null
       if (!existingSellerSnapshot) {
         return NextResponse.json({ error: 'Seller snapshot is missing' }, { status: 400 })
@@ -112,13 +117,24 @@ export async function POST(request: NextRequest) {
       finalBuyerSnapshot = buyerSnapshot!
     }
 
+    // Get intro/outro text - use invoice-specific values if set, otherwise fallback to company defaults
+    const introText = dbInvoice.intro_text || company.default_intro_text || null
+    const outroText = dbInvoice.outro_text || company.default_outro_text || null
+    
+    // Get buyer reference from invoice
+    const buyerReference = (dbInvoice as any).buyer_reference || null
+
     // Map database invoice to PDF invoice format
+    // Legal info is now included in the sellerSnapshot (works for both company and contact sellers)
     // Only include company logo when the company is the seller
     const pdfInvoice = mapDBInvoiceToPDFInvoice(
       dbInvoice,
       sellerSnapshot,
       finalBuyerSnapshot,
-      dbInvoice.seller_is_self ? company?.logo_url : null
+      dbInvoice.seller_is_self ? company?.logo_url : null,
+      introText,
+      outroText,
+      buyerReference
     )
 
     // Validate invoice for XRechnung compliance before generating
@@ -179,13 +195,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Update invoice with file URLs and set status to 'created' after successful upload
-    // Also save final snapshots and set recipient_email from buyer if available
+    // Also save final snapshots, intro/outro text, buyer_reference, and set recipient_email from buyer if available
     const updateData: Record<string, unknown> = {
       status: 'created', // Set to created only after successful upload
       seller_snapshot: sellerSnapshot,
       buyer_snapshot: finalBuyerSnapshot,
       pdf_url: pdfUrl,
       xml_url: xmlUrl,
+      // Snapshot the text fields at time of finalization
+      intro_text: introText,
+      outro_text: outroText,
+      buyer_reference: buyerReference,
     }
     
     // Set recipient email from buyer snapshot if not already set

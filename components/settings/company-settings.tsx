@@ -60,6 +60,13 @@ export default function CompanySettings({ company: initialCompany }: CompanySett
     contact_email: initialCompany.contact_email || '',
     // Language support
     enable_english_invoices: initialCompany.enable_english_invoices || false,
+    // Invoice text settings
+    default_intro_text: initialCompany.default_intro_text || 'Vielen Dank für Ihr Vertrauen. Bitte überweisen Sie den Rechnungsbetrag innerhalb der angegebenen Zahlungsfrist.',
+    default_outro_text: initialCompany.default_outro_text || 'Vielen Dank für Ihren Auftrag. Bei Fragen zu dieser Rechnung stehen wir Ihnen gerne zur Verfügung.',
+    // Legal information for footer
+    court: (initialCompany as any).court || '',
+    register_number: (initialCompany as any).register_number || '',
+    managing_director: (initialCompany as any).managing_director || '',
   })
   const [emailSettings, setEmailSettings] = useState<EmailSettings>(initialEmailSettings)
   const [isSaving, setIsSaving] = useState(false)
@@ -108,6 +115,12 @@ export default function CompanySettings({ company: initialCompany }: CompanySett
           contact_phone: company.contact_phone || null,
           contact_email: company.contact_email || null,
           enable_english_invoices: company.enable_english_invoices,
+          default_intro_text: company.default_intro_text || null,
+          default_outro_text: company.default_outro_text || null,
+          // Legal information for footer
+          court: company.court || null,
+          register_number: company.register_number || null,
+          managing_director: company.managing_director || null,
         })
         .eq('id', initialCompany.id)
 
@@ -629,6 +642,56 @@ export default function CompanySettings({ company: initialCompany }: CompanySett
                     </div>
                   </div>
                 </div>
+
+                {/* Legal Information Section for PDF Footer */}
+                <div className="pt-6 mt-6 border-t" style={{ borderColor: 'var(--border-default)' }}>
+                  <h2 className="mb-2 text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
+                    Rechtliche Angaben
+                  </h2>
+                  <p className="mb-4 text-xs" style={{ color: 'var(--text-meta)' }}>
+                    Diese Angaben erscheinen im Fußbereich Ihrer Rechnungen
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="court">Amtsgericht</Label>
+                      <Input
+                        id="court"
+                        type="text"
+                        value={company.court}
+                        onChange={(e) => setCompany({ ...company, court: e.target.value })}
+                        className="mt-1.5"
+                        placeholder="Amtsgericht München"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="register_number">Handelsregister-Nr.</Label>
+                      <Input
+                        id="register_number"
+                        type="text"
+                        value={company.register_number}
+                        onChange={(e) => setCompany({ ...company, register_number: e.target.value })}
+                        className="mt-1.5"
+                        placeholder="HRB 123456"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="managing_director">Geschäftsführer</Label>
+                      <Input
+                        id="managing_director"
+                        type="text"
+                        value={company.managing_director}
+                        onChange={(e) => setCompany({ ...company, managing_director: e.target.value })}
+                        className="mt-1.5"
+                        placeholder="Max Mustermann"
+                      />
+                      <p className="mt-1.5 text-xs text-meta">
+                        Bei mehreren Geschäftsführern durch Komma trennen
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </TabsContent>
 
@@ -685,6 +748,43 @@ export default function CompanySettings({ company: initialCompany }: CompanySett
                   <p className="mt-1.5 text-xs text-meta">
                     An diese Adresse werden fertige Rechnungen automatisch versendet (z.B. für Datev oder andere Buchhaltungssysteme)
                   </p>
+                </div>
+
+                {/* Invoice Text Section */}
+                <div className="pt-6 mt-6 border-t" style={{ borderColor: 'var(--border-default)' }}>
+                  <h2 className="mb-4 text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
+                    Rechnungstext
+                  </h2>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <Label htmlFor="default_intro_text">Einleitungstext</Label>
+                      <textarea
+                        id="default_intro_text"
+                        value={company.default_intro_text}
+                        onChange={(e) => setCompany({ ...company, default_intro_text: e.target.value })}
+                        className="mt-1.5 w-full min-h-[80px] rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800"
+                        placeholder="Vielen Dank für Ihr Vertrauen. Bitte überweisen Sie den Rechnungsbetrag innerhalb der angegebenen Zahlungsfrist."
+                      />
+                      <p className="mt-1.5 text-xs text-meta">
+                        Dieser Text erscheint auf jeder Rechnung unter der Überschrift.
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="default_outro_text">Schlusstext</Label>
+                      <textarea
+                        id="default_outro_text"
+                        value={company.default_outro_text}
+                        onChange={(e) => setCompany({ ...company, default_outro_text: e.target.value })}
+                        className="mt-1.5 w-full min-h-[80px] rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800"
+                        placeholder="Vielen Dank für Ihren Auftrag. Bei Fragen zu dieser Rechnung stehen wir Ihnen gerne zur Verfügung."
+                      />
+                      <p className="mt-1.5 text-xs text-meta">
+                        Dieser Text erscheint auf jeder Rechnung am Ende, nach den Bankdaten.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Language Support Section */}

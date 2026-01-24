@@ -14,8 +14,9 @@ import ContactSelector from './contact-selector'
 import LineItemsEditor from './line-items-editor'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { LoaderCircle, Trash2, Check } from 'lucide-react'
+import { LoaderCircle, Trash2, Check, Eye } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useDraftDrawer } from '@/contexts/draft-drawer-context'
 import { ContactDrawerProvider } from '@/contexts/contact-drawer-context'
@@ -46,6 +47,9 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
 
   // Seller state
   const [sellerIsSelf, setSellerIsSelf] = useState(draft.seller_is_self ?? true)
@@ -64,6 +68,9 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
   
   // Language state
   const [language, setLanguage] = useState<'de' | 'en'>(draft.language as 'de' | 'en' || 'de')
+  
+  // Text fields state
+  const [buyerReference, setBuyerReference] = useState(draft.buyer_reference || '')
 
   // Load company data
   useEffect(() => {
@@ -111,6 +118,7 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
           vat_amount: vatAmount,
           total_amount: totalAmount,
           language: language,
+          buyer_reference: buyerReference || null,
         })
         .eq('id', draft.id)
         .select()
@@ -143,6 +151,7 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
           vat_amount: vatAmount,
           total_amount: totalAmount,
           language: language,
+          buyer_reference: buyerReference || null,
         })
         .select()
         .single()
@@ -363,6 +372,7 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
             vat_amount: vatAmount,
             total_amount: totalAmount,
             language: language,
+            buyer_reference: buyerReference || null,
             finalized_at: new Date().toISOString(),
           })
           .eq('id', draft.id)
@@ -397,6 +407,7 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
             vat_amount: vatAmount,
             total_amount: totalAmount,
             language: language,
+            buyer_reference: buyerReference || null,
             finalized_at: new Date().toISOString(),
           })
           .select()
@@ -444,6 +455,64 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
       setIsFinalizing(false)
     }
   }
+
+  const handlePreview = async () => {
+    setError(null)
+    setIsPreviewLoading(true)
+
+    try {
+      const response = await fetch('/api/drafts/preview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          companyId: draft.company_id,
+          sellerIsSelf,
+          sellerSnapshot,
+          buyerIsSelf,
+          buyerSnapshot,
+          lineItems,
+          invoiceDate: draft.invoice_date,
+          dueDate: draft.due_date,
+          language,
+          buyerReference,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        setError(errorData.error || 'Fehler beim Erstellen der Vorschau')
+        setIsPreviewLoading(false)
+        return
+      }
+
+      // Get the PDF blob and create a URL
+      const pdfBlob = await response.blob()
+      const url = URL.createObjectURL(pdfBlob)
+      
+      // Clean up previous URL if exists
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+      
+      setPreviewUrl(url)
+      setPreviewDialogOpen(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fehler beim Erstellen der Vorschau')
+    } finally {
+      setIsPreviewLoading(false)
+    }
+  }
+
+  // Clean up preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+    }
+  }, [previewUrl])
 
   return (
     <ContactDrawerProvider>
@@ -548,6 +617,25 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
             )}
 
             <div>
+              <h2 className="mb-4 text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>Referenz</h2>
+              <div>
+                <Label htmlFor="buyer_reference">
+                  Bestellnummer / Referenz (optional)
+                </Label>
+                <Input
+                  id="buyer_reference"
+                  value={buyerReference}
+                  onChange={(e) => setBuyerReference(e.target.value)}
+                  placeholder="z.B. PO-12345"
+                  className="mt-1.5"
+                />
+                <p className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  Erscheint als &quot;REFERENZ&quot; auf der Rechnung
+                </p>
+              </div>
+            </div>
+
+            <div>
               <h2 className="mb-4 text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>Positionen</h2>
               <LineItemsEditor companyId={draft.company_id} lineItems={lineItems} onChange={handleLineItemsChange} />
               
@@ -591,6 +679,7 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
                 )
               })()}
             </div>
+
           </div>
         </div>
 
@@ -611,6 +700,19 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
               <div />
             )}
             <div className="flex gap-3">
+              <Button
+                onClick={handlePreview}
+                disabled={isPreviewLoading || isSaving || isFinalizing || isDeleting || lineItems.length === 0}
+                variant="outline"
+                className="text-sm"
+              >
+                {isPreviewLoading ? (
+                  <LoaderCircle className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Eye className="h-4 w-4 mr-2" />
+                )}
+                Vorschau
+              </Button>
               <Button
                 onClick={handleFinalize}
                 disabled={isFinalizing || isSaving || isDeleting}
@@ -660,6 +762,47 @@ export default function DraftEditor({ draft: initialDraft }: DraftEditorProps) {
               >
                 {isDeleting && <LoaderCircle className="h-4 w-4 mr-2 animate-spin" />}
                 Löschen
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* PDF Preview Dialog */}
+        <Dialog open={previewDialogOpen} onOpenChange={(open) => {
+          setPreviewDialogOpen(open)
+          if (!open && previewUrl) {
+            URL.revokeObjectURL(previewUrl)
+            setPreviewUrl(null)
+          }
+        }}>
+          <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>PDF Vorschau</DialogTitle>
+              <DialogDescription>
+                Vorschau der Rechnung. Die finale Rechnung erhält eine echte Rechnungsnummer.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 min-h-0">
+              {previewUrl && (
+                <iframe
+                  src={previewUrl}
+                  className="w-full h-full border rounded-lg"
+                  title="PDF Preview"
+                />
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setPreviewDialogOpen(false)
+                  if (previewUrl) {
+                    URL.revokeObjectURL(previewUrl)
+                    setPreviewUrl(null)
+                  }
+                }}
+              >
+                Schließen
               </Button>
             </DialogFooter>
           </DialogContent>

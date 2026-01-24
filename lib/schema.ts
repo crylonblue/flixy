@@ -30,9 +30,14 @@ export const SellerSchema = z.object({
   subHeadline: z.string().optional(),
   address: AddressSchema,
   phoneNumber: z.string().optional(),
+  email: z.string().email().optional().or(z.literal('')),
   taxNumber: z.string().optional(),
   vatId: z.string().optional(),
   contact: ContactSchema.optional(), // XRechnung BR-DE-2
+  // Legal information for footer
+  court: z.string().optional(), // e.g., "Amtsgericht München"
+  registerNumber: z.string().optional(), // e.g., "HRB 123456"
+  managingDirector: z.string().optional(), // e.g., "Max Mustermann"
 });
 
 export const CustomerSchema = z.object({
@@ -53,6 +58,7 @@ export const InvoiceItemSchema = z.object({
 export const BankDetailsSchema = z.object({
   iban: z.string().min(1, "IBAN is required"),
   bankName: z.string().min(1, "Bank name is required"),
+  bic: z.string().optional(),
 });
 
 // XRechnung BR-DE-1: Bank details required for payment instructions
@@ -74,6 +80,8 @@ export const InvoiceSchema = z.object({
   taxRate: z.number().min(0).max(100, "Tax rate must be between 0 and 100"),
   currency: z.string().length(3, "Currency must be ISO 4217 format (e.g., 'EUR', 'USD')").default("EUR"),
   note: z.string().optional(),
+  introText: z.string().optional(), // Intro text displayed under the invoice headline
+  outroText: z.string().optional(), // Outro text displayed after line items/totals
   logoUrl: z.string().url("Invalid logo URL").optional(),
   bankDetails: BankDetailsSchema.optional(),
   buyerReference: z.string().optional(), // XRechnung BR-DE-15
@@ -125,6 +133,7 @@ export const XRechnungInvoiceSchema = z.object({
   taxRate: z.number().min(0).max(100, "MwSt.-Satz muss zwischen 0 und 100 liegen"),
   currency: z.string().length(3, "Währung muss ISO 4217 Format sein").default("EUR"),
   note: z.string().optional(),
+  introText: z.string().optional(), // Intro text displayed under the invoice headline
   logoUrl: z.string().url("Ungültige Logo-URL").optional(),
   // BR-DE-1: Bank details required for payment instructions
   bankDetails: XRechnungBankDetailsSchema,

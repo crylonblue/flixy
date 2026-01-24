@@ -9,6 +9,20 @@ import {
   type InvoiceLanguage 
 } from "./invoice-translations";
 
+// Page setup constants
+const PAGE_WIDTH = 595.28; // A4 width in points
+const PAGE_HEIGHT = 841.89; // A4 height in points
+const MARGIN_LEFT = 50;
+const MARGIN_RIGHT = 50;
+const MARGIN_TOP = 50;
+const MARGIN_BOTTOM = 50;
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
+
+// Colors
+const COLOR_BLACK = rgb(0, 0, 0);
+const COLOR_GRAY = rgb(0.5, 0.5, 0.5);
+const COLOR_LIGHT_GRAY = rgb(0.7, 0.7, 0.7);
+
 function formatAddress(address: Address): { streetLine: string; cityLine: string } {
   return {
     streetLine: `${address.street} ${address.streetNumber}`,
@@ -43,13 +57,19 @@ async function fetchImageAsBytes(url: string): Promise<{ bytes: Uint8Array; type
   }
 }
 
-// Legacy functions kept for backward compatibility, but now using translation utilities
 function formatDate(dateString: string, language: InvoiceLanguage = 'de'): string {
   return formatDateForLanguage(dateString, language);
 }
 
 function formatCurrency(amount: number, language: InvoiceLanguage = 'de'): string {
   return formatCurrencyForLanguage(amount, language);
+}
+
+function formatQuantity(quantity: number, language: InvoiceLanguage = 'de'): string {
+  if (language === 'de') {
+    return quantity.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return quantity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function calculateItemTotal(item: InvoiceItem): number {
@@ -61,24 +81,111 @@ function sanitizeText(text: string): string {
   return text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+// Get country name from country code
+function getCountryName(countryCode: string, language: InvoiceLanguage = 'de'): string {
+  const countryNames: Record<string, { de: string; en: string }> = {
+    'DE': { de: 'Deutschland', en: 'Germany' },
+    'AT': { de: 'Österreich', en: 'Austria' },
+    'CH': { de: 'Schweiz', en: 'Switzerland' },
+    'FR': { de: 'Frankreich', en: 'France' },
+    'IT': { de: 'Italien', en: 'Italy' },
+    'NL': { de: 'Niederlande', en: 'Netherlands' },
+    'BE': { de: 'Belgien', en: 'Belgium' },
+    'PL': { de: 'Polen', en: 'Poland' },
+    'CZ': { de: 'Tschechien', en: 'Czech Republic' },
+    'GB': { de: 'Großbritannien', en: 'United Kingdom' },
+    'US': { de: 'USA', en: 'United States' },
+  };
+  return countryNames[countryCode]?.[language] || countryCode;
+}
+
 export async function generateInvoicePDF(invoice: Invoice, language: InvoiceLanguage = 'de'): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([595.28, 841.89]); // A4 size
+  const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   
-  const { width, height } = page.getSize();
-  const margin = 50;
-  const black = rgb(0, 0, 0);
-  const gray = rgb(0.4, 0.4, 0.4);
-  
-  let y = height - margin;
+  let y = PAGE_HEIGHT - MARGIN_TOP;
   
   // Get translations for the selected language
   const t = getTranslations(language);
   
-  // Logo (if provided)
+  // Helper function to draw text (sanitizes text to remove newlines)
+  const drawText = (text: string, x: number, yPos: number, options?: { 
+    font?: typeof helvetica; 
+    size?: number; 
+    color?: typeof COLOR_BLACK;
+    maxWidth?: number;
+  }) => {
+    let sanitized = sanitizeText(text);
+    const font = options?.font ?? helvetica;
+    const size = options?.size ?? 10;
+    
+    // Truncate if maxWidth specified
+    if (options?.maxWidth) {
+      while (font.widthOfTextAtSize(sanitized, size) > options.maxWidth && sanitized.length > 3) {
+        sanitized = sanitized.slice(0, -4) + '...';
+      }
+    }
+    
+    page.drawText(sanitized, {
+      x,
+      y: yPos,
+      font,
+      size,
+      color: options?.color ?? COLOR_BLACK,
+    });
+  };
+
+  // Helper to draw right-aligned text
+  const drawTextRight = (text: string, rightX: number, yPos: number, options?: { 
+    font?: typeof helvetica; 
+    size?: number; 
+    color?: typeof COLOR_BLACK;
+  }) => {
+    const sanitized = sanitizeText(text);
+    const font = options?.font ?? helvetica;
+    const size = options?.size ?? 10;
+    const textWidth = font.widthOfTextAtSize(sanitized, size);
+    drawText(text, rightX - textWidth, yPos, options);
+  };
+
+  // Word wrap helper
+  const wrapText = (text: string, maxWidth: number, font: typeof helvetica, size: number): string[] => {
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+    
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      if (font.widthOfTextAtSize(testLine, size) > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    return lines;
+  };
+
+  const sellerAddress = formatAddress(invoice.seller.address);
+  const rightColumnX = PAGE_WIDTH / 2 + 10;
+
+  // ===========================================
+  // SECTION 1: Header - One-line sender + Logo
+  // ===========================================
+  
+  // One-line sender address (top left, small font)
+  // Using bullet character instead of arrow (→) as WinAnsi encoding doesn't support arrows
+  const senderOneLine = `${invoice.seller.name} - ${sellerAddress.streetLine} - ${sellerAddress.cityLine}`;
+  drawText(senderOneLine, MARGIN_LEFT, y, { size: 8, color: COLOR_GRAY });
+
+  // Logo (top right)
+  let logoHeight = 0;
   if (invoice.logoUrl) {
     const imageData = await fetchImageAsBytes(invoice.logoUrl);
     if (imageData) {
@@ -86,176 +193,199 @@ export async function generateInvoicePDF(invoice: Invoice, language: InvoiceLang
         ? await pdfDoc.embedPng(imageData.bytes)
         : await pdfDoc.embedJpg(imageData.bytes);
       
-      // Scale logo to max 120px width or 60px height
-      const maxWidth = 120;
-      const maxHeight = 60;
+      // Scale logo to max 150px width or 50px height
+      const maxWidth = 150;
+      const maxHeight = 50;
       const scale = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
       const scaledWidth = image.width * scale;
       const scaledHeight = image.height * scale;
+      logoHeight = scaledHeight;
       
       page.drawImage(image, {
-        x: margin,
-        y: height - margin - scaledHeight,
+        x: PAGE_WIDTH - MARGIN_RIGHT - scaledWidth,
+        y: y - scaledHeight + 10,
         width: scaledWidth,
         height: scaledHeight,
       });
-      
-      y = height - margin - scaledHeight - 20;
     }
   }
 
-  // Helper function to draw text (sanitizes text to remove newlines)
-  const drawText = (text: string, x: number, yPos: number, options?: { font?: typeof helvetica; size?: number; color?: typeof black }) => {
-    const sanitized = sanitizeText(text);
-    page.drawText(sanitized, {
-      x,
-      y: yPos,
-      font: options?.font ?? helvetica,
-      size: options?.size ?? 10,
-      color: options?.color ?? black,
-    });
-  };
-
-  // Seller Info (top right) - always at fixed position from top
-  const sellerY = height - margin;
+  // ===========================================
+  // SECTION 2: Two-Column Layout
+  // ===========================================
   
-  // Seller name (bold)
-  const sellerNameWidth = helveticaBold.widthOfTextAtSize(sanitizeText(invoice.seller.name), 10);
-  drawText(invoice.seller.name, width - margin - sellerNameWidth, sellerY, { font: helveticaBold });
-  
-  // Build remaining seller lines (not bold)
-  const sellerAddress = formatAddress(invoice.seller.address);
-  const sellerLines = [
-    invoice.seller.subHeadline,
-    sellerAddress.streetLine,
-    sellerAddress.cityLine,
-    invoice.seller.taxNumber ? `${t.taxNumber}: ${invoice.seller.taxNumber}` : null,
-    invoice.seller.vatId ? `${t.vatId}: ${invoice.seller.vatId}` : null,
-  ].filter(Boolean) as string[];
+  y -= Math.max(logoHeight, 20) + 30;
+  const twoColumnY = y;
 
-  sellerLines.forEach((line, i) => {
-    const sanitizedLine = sanitizeText(line);
-    const textWidth = helvetica.widthOfTextAtSize(sanitizedLine, 10);
-    drawText(line, width - margin - textWidth, sellerY - ((i + 1) * 14));
-  });
-
-  // Customer Info (left side)
-  y = height - 170;
-  drawText(invoice.customer.name, margin, y);
-  
-  // Address on two lines: street + number, then postal code + city
+  // LEFT COLUMN: Recipient Address Block
   const customerAddress = formatAddress(invoice.customer.address);
-  drawText(customerAddress.streetLine, margin, y - 14);
-  drawText(customerAddress.cityLine, margin, y - 28);
   
-  let customerLineOffset = 42; // After name + 2 address lines
-  
-  // Phone number (if provided)
-  if (invoice.customer.phoneNumber) {
-    drawText(`${t.phone}: ${invoice.customer.phoneNumber}`, margin, y - customerLineOffset);
-    customerLineOffset += 14;
-  }
-  
-  const additionalInfoCount = invoice.customer.additionalInfo?.length ?? 0;
-  if (additionalInfoCount > 0) {
-    // Add spacing before additionalInfo (at least 2 lines = 28 pixels)
-    customerLineOffset += 28;
-    invoice.customer.additionalInfo!.forEach((info, i) => {
-      drawText(info, margin, y - customerLineOffset - (i * 14), { color: gray });
-    });
+  drawText(invoice.customer.name, MARGIN_LEFT, y, { font: helveticaBold });
+  y -= 14;
+  drawText(customerAddress.streetLine, MARGIN_LEFT, y);
+  y -= 14;
+  drawText(customerAddress.cityLine, MARGIN_LEFT, y);
+  y -= 14;
+  if (invoice.customer.address.country && invoice.customer.address.country !== 'DE') {
+    drawText(getCountryName(invoice.customer.address.country, language), MARGIN_LEFT, y);
+    y -= 14;
   }
 
-  // Invoice Title - adjust position based on customer info lines
-  const customerSectionHeight = customerLineOffset + (additionalInfoCount * 14) + 30;
-  y -= customerSectionHeight;
-  drawText(t.invoice, margin, y, { font: helveticaBold, size: 24 });
+  // RIGHT COLUMN: Metadata Table
+  const metadataY = twoColumnY;
+  const labelX = rightColumnX;
+  const valueX = PAGE_WIDTH - MARGIN_RIGHT;
+  const metadataLineHeight = 16;
+  let metaY = metadataY;
 
-  // Invoice Details
-  y -= 40;
-  drawText(`${t.invoiceNumber}: ${invoice.invoiceNumber}`, margin, y);
-  drawText(`${t.invoiceDate}: ${formatDate(invoice.invoiceDate, language)}`, margin, y - 14);
-  drawText(`${t.serviceDate}: ${formatDate(invoice.serviceDate, language)}`, margin, y - 28);
-
-  // Table Header
-  y -= 70;
-  const colPositions = {
-    description: margin,
-    quantity: 300,
-    unit: 350,
-    unitPrice: 410,
-    total: 480,
-  };
-  const colRightEdges = {
-    unitPrice: colPositions.total - 10, // Right edge of unitPrice column
-    total: width - margin, // Right edge of total column
+  const drawMetadataRow = (label: string, value: string | undefined, yPos: number) => {
+    if (!value) return yPos;
+    drawText(label, labelX, yPos, { size: 8, color: COLOR_GRAY });
+    drawTextRight(value, valueX, yPos, { size: 8 });
+    return yPos - metadataLineHeight;
   };
 
-  drawText(t.description, colPositions.description, y, { font: helveticaBold });
-  drawText(t.quantity, colPositions.quantity, y, { font: helveticaBold });
-  drawText(t.unit, colPositions.unit, y, { font: helveticaBold });
-  drawText(t.price, colPositions.unitPrice, y, { font: helveticaBold });
-  drawText(t.total, colPositions.total, y, { font: helveticaBold });
+  // Metadata labels based on language
+  const metaLabels = language === 'de' ? {
+    invoiceNumber: 'RECHNUNGS-NR.',
+    invoiceDate: 'RECHNUNGSDATUM',
+    reference: 'REFERENZ',
+    serviceDate: 'LIEFERDATUM',
+    contactPerson: 'IHR ANSPRECHPARTNER',
+  } : {
+    invoiceNumber: 'INVOICE NO.',
+    invoiceDate: 'INVOICE DATE',
+    reference: 'REFERENCE',
+    serviceDate: 'DELIVERY DATE',
+    contactPerson: 'YOUR CONTACT',
+  };
 
-  // Separator line
+  metaY = drawMetadataRow(metaLabels.invoiceNumber, invoice.invoiceNumber, metaY);
+  metaY = drawMetadataRow(metaLabels.invoiceDate, formatDate(invoice.invoiceDate, language), metaY);
+  if (invoice.buyerReference) {
+    metaY = drawMetadataRow(metaLabels.reference, invoice.buyerReference, metaY);
+  }
+  metaY = drawMetadataRow(metaLabels.serviceDate, formatDate(invoice.serviceDate, language), metaY);
+  if (invoice.seller.contact?.name) {
+    metaY = drawMetadataRow(metaLabels.contactPerson, invoice.seller.contact.name, metaY);
+  }
+
+  // Move y to below both columns (increased spacing before headline)
+  y = Math.min(y, metaY) - 45;
+
+  // ===========================================
+  // SECTION 3: Invoice Title
+  // ===========================================
+  
+  const invoiceTitle = language === 'de' 
+    ? `Rechnung Nr. ${invoice.invoiceNumber}`
+    : `Invoice No. ${invoice.invoiceNumber}`;
+  
+  const headlineSize = 14;
+  const dateSize = 10;
+  drawText(invoiceTitle, MARGIN_LEFT, y, { font: helveticaBold, size: headlineSize });
+  // Center date vertically with the headline
+  const dateCenterOffset = (headlineSize - dateSize) / 2;
+  drawTextRight(formatDate(invoice.invoiceDate, language), PAGE_WIDTH - MARGIN_RIGHT, y + dateCenterOffset, { size: dateSize });
+
+  y -= 30;
+
+  // ===========================================
+  // SECTION 4: Body Text (Greeting + Intro)
+  // ===========================================
+  
+  // Greeting
+  const greeting = language === 'de' ? 'Sehr geehrte Damen und Herren,' : 'Dear Sir or Madam,';
+  drawText(greeting, MARGIN_LEFT, y);
+  y -= 20;
+
+  // Intro text (if provided)
+  if (invoice.introText) {
+    const introLines = wrapText(sanitizeText(invoice.introText), CONTENT_WIDTH, helvetica, 10);
+    for (const line of introLines) {
+      drawText(line, MARGIN_LEFT, y);
+      y -= 14;
+    }
+  }
+
+  y -= 20;
+
+  // ===========================================
+  // SECTION 5: Line Items Table
+  // ===========================================
+  
+  // Column positions and widths
+  const tableLeft = MARGIN_LEFT;
+  const tableRight = PAGE_WIDTH - MARGIN_RIGHT;
+  const col = {
+    description: tableLeft,
+    quantity: tableLeft + CONTENT_WIDTH * 0.50,
+    unit: tableLeft + CONTENT_WIDTH * 0.62,
+    unitPrice: tableLeft + CONTENT_WIDTH * 0.74,
+    total: tableRight,
+  };
+
+  // Table header
+  const tableHeaders = language === 'de' 
+    ? { description: 'Beschreibung', quantity: 'Menge', unit: 'Einheit', unitPrice: 'Einzelpreis', total: 'Gesamtpreis' }
+    : { description: 'Description', quantity: 'Qty', unit: 'Unit', unitPrice: 'Unit Price', total: 'Total' };
+
+  drawText(tableHeaders.description, col.description, y, { font: helveticaBold, size: 9 });
+  drawTextRight(tableHeaders.quantity, col.quantity + 40, y, { font: helveticaBold, size: 9 });
+  drawText(tableHeaders.unit, col.unit, y, { font: helveticaBold, size: 9 });
+  drawTextRight(tableHeaders.unitPrice, col.unitPrice + 55, y, { font: helveticaBold, size: 9 });
+  drawTextRight(tableHeaders.total, col.total, y, { font: helveticaBold, size: 9 });
+
+  // Header bottom border
   y -= 5;
   page.drawLine({
-    start: { x: margin, y },
-    end: { x: width - margin, y },
+    start: { x: tableLeft, y },
+    end: { x: tableRight, y },
     thickness: 0.5,
-    color: black,
+    color: COLOR_BLACK,
   });
 
-  // Table Rows
-  y -= 20;
+  // Table rows
+  y -= 18;
   let netTotal = 0;
+  const maxDescWidth = CONTENT_WIDTH * 0.45;
 
-  for (const item of invoice.items) {
+  invoice.items.forEach((item) => {
     const itemTotal = calculateItemTotal(item);
     netTotal += itemTotal;
 
-    // Truncate long descriptions
-    let description = sanitizeText(item.description);
-    const maxDescWidth = 240;
-    while (helvetica.widthOfTextAtSize(description, 10) > maxDescWidth && description.length > 0) {
-      description = description.slice(0, -1);
-    }
-    if (description !== sanitizeText(item.description)) {
-      description = description.slice(0, -3) + "...";
-    }
-
-    drawText(description, colPositions.description, y);
-    drawText(item.quantity.toString(), colPositions.quantity, y);
-    drawText(getUnitLabel(item.unit), colPositions.unit, y);
-    // Right-align unitPrice
-    const unitPriceText = formatCurrency(item.unitPrice, language);
-    const sanitizedUnitPriceText = sanitizeText(unitPriceText);
-    const unitPriceWidth = helvetica.widthOfTextAtSize(sanitizedUnitPriceText, 10);
-    drawText(unitPriceText, colRightEdges.unitPrice - unitPriceWidth, y);
-    // Right-align unitTotal
-    const unitTotalText = formatCurrency(itemTotal, language);
-    const sanitizedUnitTotalText = sanitizeText(unitTotalText);
-    const unitTotalWidth = helvetica.widthOfTextAtSize(sanitizedUnitTotalText, 10);
-    drawText(unitTotalText, colRightEdges.total - unitTotalWidth, y);
+    // Description (without numeration)
+    drawText(item.description, col.description, y, { maxWidth: maxDescWidth });
+    
+    // Quantity with unit combined for German format
+    const qtyText = formatQuantity(item.quantity, language);
+    drawTextRight(qtyText, col.quantity + 40, y);
+    
+    // Unit
+    drawText(getUnitLabel(item.unit), col.unit, y);
+    
+    // Unit price
+    drawTextRight(formatCurrency(item.unitPrice, language), col.unitPrice + 55, y);
+    
+    // Total
+    drawTextRight(formatCurrency(itemTotal, language), col.total, y);
 
     y -= 20;
-  }
-
-  // Separator line before totals
-  y -= 10;
-  page.drawLine({
-    start: { x: 350, y },
-    end: { x: width - margin, y },
-    thickness: 0.5,
-    color: black,
   });
 
-  // Calculate VAT per rate (supports multiple VAT rates)
+  // ===========================================
+  // SECTION 6: Totals Block (Right-Aligned)
+  // ===========================================
+  
+  y -= 10;
+  
+  // Calculate VAT per rate
   const vatByRate = new Map<number, { basis: number; tax: number }>();
   let totalTax = 0;
   
   for (const item of invoice.items) {
     const itemNet = item.quantity * item.unitPrice;
-    const itemVatRate = item.vatRate ?? invoice.taxRate; // Use item rate or fallback
+    const itemVatRate = item.vatRate ?? invoice.taxRate;
     const itemTax = itemNet * (itemVatRate / 100);
     totalTax += itemTax;
     
@@ -268,75 +398,157 @@ export async function generateInvoicePDF(invoice: Invoice, language: InvoiceLang
   
   const grossTotal = netTotal + totalTax;
 
-  // Totals
-  y -= 20;
-  drawText(`${t.netAmount}:`, 350, y);
-  // Right-align netTotal
-  const netTotalText = formatCurrency(netTotal, language);
-  const sanitizedNetTotalText = sanitizeText(netTotalText);
-  const netTotalWidth = helvetica.widthOfTextAtSize(sanitizedNetTotalText, 10);
-  drawText(netTotalText, colRightEdges.total - netTotalWidth, y);
+  const totalsLabelX = tableRight - 180;
+  const totalsValueX = tableRight;
 
-  // Show VAT lines per rate
+  // Net total
+  const netLabel = language === 'de' ? 'Gesamtbetrag netto' : 'Net total';
+  drawText(netLabel, totalsLabelX, y);
+  drawTextRight(formatCurrency(netTotal, language), totalsValueX, y);
+  y -= 16;
+
+  // VAT lines
   const sortedVatRates = Array.from(vatByRate.entries()).sort((a, b) => a[0] - b[0]);
   for (const [rate, amounts] of sortedVatRates) {
-    y -= 18;
-    drawText(`${t.vat(rate)}:`, 350, y);
-    // Right-align taxAmount
-    const taxAmountText = formatCurrency(amounts.tax, language);
-    const sanitizedTaxAmountText = sanitizeText(taxAmountText);
-    const taxAmountWidth = helvetica.widthOfTextAtSize(sanitizedTaxAmountText, 10);
-    drawText(taxAmountText, colRightEdges.total - taxAmountWidth, y);
+    const vatLabel = language === 'de' ? `Umsatzsteuer ${rate}%` : `VAT ${rate}%`;
+    drawText(vatLabel, totalsLabelX, y);
+    drawTextRight(formatCurrency(amounts.tax, language), totalsValueX, y);
+    y -= 16;
   }
 
-  y -= 10;
+  // Separator line
+  y -= 2;
   page.drawLine({
-    start: { x: 350, y },
-    end: { x: width - margin, y },
+    start: { x: totalsLabelX, y },
+    end: { x: totalsValueX, y },
     thickness: 0.5,
-    color: black,
+    color: COLOR_BLACK,
+  });
+  y -= 12;
+
+  // Gross total (bold)
+  const grossLabel = language === 'de' ? 'Gesamtbetrag brutto' : 'Total amount';
+  drawText(grossLabel, totalsLabelX, y, { font: helveticaBold });
+  drawTextRight(formatCurrency(grossTotal, language), totalsValueX, y, { font: helveticaBold });
+
+  y -= 40;
+
+  // ===========================================
+  // SECTION 7: Outro/Payment Notice
+  // ===========================================
+  
+  if (invoice.outroText) {
+    const outroLines = invoice.outroText.split('\n');
+    for (const line of outroLines) {
+      const wrappedLines = wrapText(sanitizeText(line), CONTENT_WIDTH, helvetica, 10);
+      for (const wrappedLine of wrappedLines) {
+        drawText(wrappedLine, MARGIN_LEFT, y);
+        y -= 14;
+      }
+    }
+  }
+
+  // ===========================================
+  // SECTION 8: Footer (4 Columns)
+  // ===========================================
+  
+  const footerY = MARGIN_BOTTOM + 60;
+  const footerFontSize = 8;
+  const footerLineHeight = 11;
+  const footerColWidth = CONTENT_WIDTH / 4;
+  const footerCols = [
+    MARGIN_LEFT,
+    MARGIN_LEFT + footerColWidth,
+    MARGIN_LEFT + footerColWidth * 2,
+    MARGIN_LEFT + footerColWidth * 3,
+  ];
+
+  // Separator line above footer
+  page.drawLine({
+    start: { x: MARGIN_LEFT, y: footerY + 20 },
+    end: { x: PAGE_WIDTH - MARGIN_RIGHT, y: footerY + 20 },
+    thickness: 0.5,
+    color: COLOR_LIGHT_GRAY,
   });
 
-  y -= 15;
-  drawText(`${t.totalAmount}:`, 350, y, { font: helveticaBold });
-  // Right-align grossTotal
-  const grossTotalText = formatCurrency(grossTotal, language);
-  const sanitizedGrossTotalText = sanitizeText(grossTotalText);
-  const grossTotalWidth = helveticaBold.widthOfTextAtSize(sanitizedGrossTotalText, 10);
-  drawText(grossTotalText, colRightEdges.total - grossTotalWidth, y, { font: helveticaBold });
+  // Helper to draw footer row - puts label and value on same line if they fit, otherwise breaks
+  const drawFooterRow = (label: string, value: string, x: number, yPos: number, maxWidth: number): number => {
+    const labelWidth = helvetica.widthOfTextAtSize(label + ' ', footerFontSize);
+    const valueWidth = helvetica.widthOfTextAtSize(value, footerFontSize);
+    const totalWidth = labelWidth + valueWidth;
+    
+    if (totalWidth <= maxWidth) {
+      // Fits on one line
+      drawText(label, x, yPos, { size: footerFontSize, color: COLOR_GRAY });
+      drawText(value, x + labelWidth, yPos, { size: footerFontSize });
+      return yPos - footerLineHeight;
+    } else {
+      // Break to two lines
+      drawText(label, x, yPos, { size: footerFontSize, color: COLOR_GRAY });
+      yPos -= footerLineHeight;
+      drawText(value, x, yPos, { size: footerFontSize });
+      return yPos - footerLineHeight;
+    }
+  };
 
-  // Bank Details
+  // Helper to draw footer value only (no label)
+  const drawFooterValue = (value: string, x: number, yPos: number) => {
+    drawText(value, x, yPos, { size: footerFontSize });
+  };
+
+  // Column 1: Company Address (no labels, just values)
+  let col1Y = footerY;
+  drawFooterValue(invoice.seller.name, footerCols[0], col1Y);
+  col1Y -= footerLineHeight;
+  drawFooterValue(sellerAddress.streetLine, footerCols[0], col1Y);
+  col1Y -= footerLineHeight;
+  drawFooterValue(sellerAddress.cityLine, footerCols[0], col1Y);
+  if (invoice.seller.address.country) {
+    col1Y -= footerLineHeight;
+    drawFooterValue(getCountryName(invoice.seller.address.country, language), footerCols[0], col1Y);
+  }
+
+  // Column 2: Contact Info
+  let col2Y = footerY;
+  if (invoice.seller.phoneNumber) {
+    col2Y = drawFooterRow('TEL.', invoice.seller.phoneNumber, footerCols[1], col2Y, footerColWidth - 5);
+  }
+  if (invoice.seller.email || invoice.seller.contact?.email) {
+    const email = invoice.seller.email || invoice.seller.contact?.email || '';
+    col2Y = drawFooterRow('E-MAIL', email, footerCols[1], col2Y, footerColWidth - 5);
+  }
+
+  // Column 3: Legal Info
+  let col3Y = footerY;
+  if (invoice.seller.court) {
+    col3Y = drawFooterRow('AMTSGERICHT', invoice.seller.court, footerCols[2], col3Y, footerColWidth - 5);
+  }
+  if (invoice.seller.registerNumber) {
+    col3Y = drawFooterRow('HR-NR.', invoice.seller.registerNumber, footerCols[2], col3Y, footerColWidth - 5);
+  }
+  if (invoice.seller.vatId) {
+    col3Y = drawFooterRow('UST.-ID', invoice.seller.vatId, footerCols[2], col3Y, footerColWidth - 5);
+  }
+  if (invoice.seller.taxNumber) {
+    col3Y = drawFooterRow('STEUER-NR.', invoice.seller.taxNumber, footerCols[2], col3Y, footerColWidth - 5);
+  }
+  if (invoice.seller.managingDirector) {
+    col3Y = drawFooterRow('GESCHÄFTSF.', invoice.seller.managingDirector, footerCols[2], col3Y, footerColWidth - 5);
+  }
+
+  // Column 4: Bank Details
+  let col4Y = footerY;
   if (invoice.bankDetails) {
-    y -= 50;
-    drawText(`${t.bankDetails}:`, margin, y, { font: helveticaBold });
-    y -= 14;
-    drawText(`${t.iban}: ${invoice.bankDetails.iban}`, margin, y);
-    y -= 14;
-    drawText(`${t.bankName}: ${invoice.bankDetails.bankName}`, margin, y);
+    col4Y = drawFooterRow('BANK', invoice.bankDetails.bankName, footerCols[3], col4Y, footerColWidth - 5);
+    col4Y = drawFooterRow('IBAN', invoice.bankDetails.iban, footerCols[3], col4Y, footerColWidth - 5);
+    if (invoice.bankDetails.bic) {
+      col4Y = drawFooterRow('BIC', invoice.bankDetails.bic, footerCols[3], col4Y, footerColWidth - 5);
+    }
   }
 
-  // Note
-  if (invoice.note) {
-    y -= 40;
-    drawText(invoice.note, margin, y, { color: gray });
-  }
-
-  // Footer
-  const footerParts = [
-    invoice.seller.name,
-    `${sellerAddress.streetLine}, ${sellerAddress.cityLine}`,
-    invoice.seller.phoneNumber ? `${t.phone}: ${invoice.seller.phoneNumber}` : null,
-  ].filter(Boolean) as string[];
-  const footerText = footerParts.join(' | ');
-  const sanitizedFooterText = sanitizeText(footerText);
-  const footerWidth = helvetica.widthOfTextAtSize(sanitizedFooterText, 8);
-  page.drawText(sanitizedFooterText, {
-    x: (width - footerWidth) / 2,
-    y: margin,
-    font: helvetica,
-    size: 8,
-    color: gray,
-  });
+  // Page number (bottom right)
+  const pageNumberText = '1/1';
+  drawTextRight(pageNumberText, PAGE_WIDTH - MARGIN_RIGHT, MARGIN_BOTTOM, { size: 8, color: COLOR_GRAY });
 
   // Set document metadata
   const invoiceLabel = language === 'en' ? 'Invoice' : 'Rechnung';
@@ -348,11 +560,9 @@ export async function generateInvoicePDF(invoice: Invoice, language: InvoiceLang
   pdfDoc.setProducer("Invoice API");
 
   // Save the visual PDF first
-  // Use save with options to ensure fonts are embedded and structure is correct
-  // Note: pdf-lib doesn't create PDF/A-3b directly, but node-zugferd will convert it
   const visualPdfBuffer = await pdfDoc.save({
-    useObjectStreams: false, // Disable object streams for better compatibility
-    addDefaultPage: false, // Don't add default page
+    useObjectStreams: false,
+    addDefaultPage: false,
   });
 
   // Embed ZUGFeRD XML into PDF and convert to PDF/A-3b compliant document

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useRouter } from 'next/navigation'
@@ -10,6 +10,7 @@ import { isOverdue, getStatusLabel, getStatusClass } from '@/lib/invoice-utils'
 import { Button } from '@/components/ui/button'
 import { SendHorizontal } from 'lucide-react'
 import SendInvoiceModal from './send-invoice-modal'
+import { InvoiceFiltersToolbar } from './invoice-filters'
 import {
   Table,
   TableBody,
@@ -28,6 +29,11 @@ export default function InvoicesTable({ invoices, companyNames = {} }: InvoicesT
   const router = useRouter()
   const { openDrawer } = useInvoiceDrawer()
   const [sendModalInvoice, setSendModalInvoice] = useState<Invoice | null>(null)
+  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>(invoices)
+
+  const handleFilteredInvoicesChange = useCallback((filtered: Invoice[]) => {
+    setFilteredInvoices(filtered)
+  }, [])
 
   const handleSendClick = (e: React.MouseEvent, invoice: Invoice) => {
     e.stopPropagation()
@@ -41,19 +47,31 @@ export default function InvoicesTable({ invoices, companyNames = {} }: InvoicesT
 
   return (
     <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Rechnungsnummer</TableHead>
-            <TableHead>Empfänger</TableHead>
-            <TableHead className="text-right">Betrag</TableHead>
-            <TableHead>Rechnungsdatum</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="w-[50px]"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {invoices.map((invoice) => {
+      <InvoiceFiltersToolbar
+        invoices={invoices}
+        onFilteredInvoicesChange={handleFilteredInvoicesChange}
+        companyNames={companyNames}
+      />
+
+      {filteredInvoices.length === 0 ? (
+        <div className="card card-subtle p-12 text-center">
+          <p className="text-secondary">Keine Rechnungen gefunden.</p>
+          <p className="text-meta mt-1">Versuchen Sie, die Filter anzupassen.</p>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Rechnungsnummer</TableHead>
+              <TableHead>Empfänger</TableHead>
+              <TableHead className="text-right">Betrag</TableHead>
+              <TableHead>Rechnungsdatum</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="w-[50px]"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredInvoices.map((invoice) => {
             const buyerSnapshot = invoice.buyer_snapshot as any
             const buyerName = invoice.buyer_is_self 
               ? (companyNames[invoice.company_id] || 'Eigene Firma')
@@ -115,8 +133,9 @@ export default function InvoicesTable({ invoices, companyNames = {} }: InvoicesT
               </TableRow>
             )
           })}
-        </TableBody>
-      </Table>
+          </TableBody>
+        </Table>
+      )}
 
       {sendModalInvoice && (
         <SendInvoiceModal
