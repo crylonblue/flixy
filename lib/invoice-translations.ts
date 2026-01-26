@@ -8,6 +8,8 @@ export type InvoiceLanguage = 'de' | 'en'
 interface InvoiceTranslations {
   // Invoice document
   invoice: string
+  cancellationInvoice: string
+  originalInvoiceRef: (invoiceNumber: string) => string
   invoiceNumber: string
   invoiceDate: string
   serviceDate: string
@@ -47,11 +49,17 @@ interface InvoiceTranslations {
   emailBody: (invoiceNumber: string, totalAmount: string) => string
   emailClosing: string
   emailQuestionsAvailable: string
+  
+  // Cancellation email templates
+  cancellationEmailSubject: (invoiceNumber: string) => string
+  cancellationEmailBody: (cancellationNumber: string, originalInvoiceNumber: string) => string
 }
 
 const germanTranslations: InvoiceTranslations = {
   // Invoice document
   invoice: 'RECHNUNG',
+  cancellationInvoice: 'STORNORECHNUNG',
+  originalInvoiceRef: (invoiceNumber: string) => `Storno zu Rechnung ${invoiceNumber}`,
   invoiceNumber: 'Rechnungsnummer',
   invoiceDate: 'Rechnungsdatum',
   serviceDate: 'Leistungsdatum',
@@ -92,11 +100,18 @@ const germanTranslations: InvoiceTranslations = {
     `anbei erhalten Sie Rechnung ${invoiceNumber} über ${totalAmount}.`,
   emailClosing: 'Mit freundlichen Grüßen',
   emailQuestionsAvailable: 'Bei Fragen stehen wir Ihnen gerne zur Verfügung.',
+  
+  // Cancellation email templates
+  cancellationEmailSubject: (invoiceNumber: string) => `Stornorechnung ${invoiceNumber}`,
+  cancellationEmailBody: (cancellationNumber: string, originalInvoiceNumber: string) => 
+    `anbei erhalten Sie die Stornorechnung ${cancellationNumber} zur Stornierung der Rechnung ${originalInvoiceNumber}.`,
 }
 
 const englishTranslations: InvoiceTranslations = {
   // Invoice document
   invoice: 'INVOICE',
+  cancellationInvoice: 'CANCELLATION INVOICE',
+  originalInvoiceRef: (invoiceNumber: string) => `Cancellation of invoice ${invoiceNumber}`,
   invoiceNumber: 'Invoice Number',
   invoiceDate: 'Invoice Date',
   serviceDate: 'Service Date',
@@ -137,6 +152,11 @@ const englishTranslations: InvoiceTranslations = {
     `please find attached invoice ${invoiceNumber} for ${totalAmount}.`,
   emailClosing: 'Best regards',
   emailQuestionsAvailable: 'If you have any questions, please feel free to contact us.',
+  
+  // Cancellation email templates
+  cancellationEmailSubject: (invoiceNumber: string) => `Cancellation Invoice ${invoiceNumber}`,
+  cancellationEmailBody: (cancellationNumber: string, originalInvoiceNumber: string) => 
+    `please find attached the cancellation invoice ${cancellationNumber} for the cancellation of invoice ${originalInvoiceNumber}.`,
 }
 
 /**

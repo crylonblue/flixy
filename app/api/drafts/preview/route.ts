@@ -137,6 +137,7 @@ export async function POST(request: NextRequest) {
       id: 'preview',
       company_id: companyId,
       status: 'draft',
+      invoice_type: 'invoice',
       invoice_number: 'VORSCHAU', // Preview indicator
       invoice_date: invoiceDate || new Date().toISOString().split('T')[0],
       due_date: body.dueDate || null,
@@ -154,6 +155,7 @@ export async function POST(request: NextRequest) {
       intro_text: introText,
       outro_text: outroText,
       buyer_reference: buyerReference,
+      cancelled_invoice_id: null,
       pdf_url: null,
       xml_url: null,
       invoice_file_reference: null,

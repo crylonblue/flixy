@@ -21,6 +21,8 @@ export interface Database {
           invoice_number_prefix: string
           invoice_number_format: string
           invoice_number_counter: number
+          cancellation_number_counter: number
+          cancellation_number_prefix: string
           default_vat_rate: number
           bank_details: Json | null
           accounting_email: string | null
@@ -48,6 +50,8 @@ export interface Database {
           invoice_number_prefix?: string
           invoice_number_format?: string
           invoice_number_counter?: number
+          cancellation_number_counter?: number
+          cancellation_number_prefix?: string
           default_vat_rate?: number
           bank_details?: Json | null
           accounting_email?: string | null
@@ -75,6 +79,8 @@ export interface Database {
           invoice_number_prefix?: string
           invoice_number_format?: string
           invoice_number_counter?: number
+          cancellation_number_counter?: number
+          cancellation_number_prefix?: string
           default_vat_rate?: number
           bank_details?: Json | null
           accounting_email?: string | null
@@ -151,6 +157,8 @@ export interface Database {
           vat_id: string | null
           invoice_number_prefix: string | null
           invoice_number_counter: number
+          cancellation_number_prefix: string | null
+          cancellation_number_counter: number
           tax_id: string | null
           bank_details: Json | null
           court: string | null
@@ -171,6 +179,8 @@ export interface Database {
           vat_id?: string | null
           invoice_number_prefix?: string | null
           invoice_number_counter?: number
+          cancellation_number_prefix?: string | null
+          cancellation_number_counter?: number
           tax_id?: string | null
           bank_details?: Json | null
           court?: string | null
@@ -191,6 +201,8 @@ export interface Database {
           vat_id?: string | null
           invoice_number_prefix?: string | null
           invoice_number_counter?: number
+          cancellation_number_prefix?: string | null
+          cancellation_number_counter?: number
           tax_id?: string | null
           bank_details?: Json | null
           court?: string | null
@@ -208,6 +220,7 @@ export interface Database {
           id: string
           company_id: string
           status: 'draft' | 'created' | 'sent' | 'reminded' | 'paid' | 'cancelled'
+          invoice_type: 'invoice' | 'cancellation'
           invoice_number: string | null
           invoice_date: string | null
           due_date: string | null
@@ -229,6 +242,7 @@ export interface Database {
           intro_text: string | null
           outro_text: string | null
           buyer_reference: string | null
+          cancelled_invoice_id: string | null
           created_at: string
           updated_at: string
           finalized_at: string | null
@@ -237,6 +251,7 @@ export interface Database {
           id?: string
           company_id: string
           status?: 'draft' | 'created' | 'sent' | 'reminded' | 'paid' | 'cancelled'
+          invoice_type?: 'invoice' | 'cancellation'
           invoice_number?: string | null
           invoice_date?: string | null
           due_date?: string | null
@@ -258,6 +273,7 @@ export interface Database {
           intro_text?: string | null
           outro_text?: string | null
           buyer_reference?: string | null
+          cancelled_invoice_id?: string | null
           created_at?: string
           updated_at?: string
           finalized_at?: string | null
@@ -266,6 +282,7 @@ export interface Database {
           id?: string
           company_id?: string
           status?: 'draft' | 'created' | 'sent' | 'reminded' | 'paid' | 'cancelled'
+          invoice_type?: 'invoice' | 'cancellation'
           invoice_number?: string | null
           invoice_date?: string | null
           due_date?: string | null
@@ -287,6 +304,7 @@ export interface Database {
           intro_text?: string | null
           outro_text?: string | null
           buyer_reference?: string | null
+          cancelled_invoice_id?: string | null
           created_at?: string
           updated_at?: string
           finalized_at?: string | null

@@ -99,7 +99,23 @@ function getCountryName(countryCode: string, language: InvoiceLanguage = 'de'): 
   return countryNames[countryCode]?.[language] || countryCode;
 }
 
-export async function generateInvoicePDF(invoice: Invoice, language: InvoiceLanguage = 'de'): Promise<Uint8Array> {
+/**
+ * Options for PDF generation
+ */
+interface PdfGenerationOptions {
+  /** Whether this is a cancellation invoice (Stornorechnung) */
+  isCancellation?: boolean;
+  /** Original invoice number for cancellation invoices */
+  originalInvoiceNumber?: string;
+}
+
+export async function generateInvoicePDF(
+  invoice: Invoice, 
+  language: InvoiceLanguage = 'de',
+  options: PdfGenerationOptions = {}
+): Promise<Uint8Array> {
+  const { isCancellation = false, originalInvoiceNumber } = options;
+  
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   
@@ -277,9 +293,17 @@ export async function generateInvoicePDF(invoice: Invoice, language: InvoiceLang
   // SECTION 3: Invoice Title
   // ===========================================
   
-  const invoiceTitle = language === 'de' 
-    ? `Rechnung Nr. ${invoice.invoiceNumber}`
-    : `Invoice No. ${invoice.invoiceNumber}`;
+  // Use different title for cancellation invoices
+  let invoiceTitle: string;
+  if (isCancellation) {
+    invoiceTitle = language === 'de' 
+      ? `Stornorechnung Nr. ${invoice.invoiceNumber}`
+      : `Cancellation Invoice No. ${invoice.invoiceNumber}`;
+  } else {
+    invoiceTitle = language === 'de' 
+      ? `Rechnung Nr. ${invoice.invoiceNumber}`
+      : `Invoice No. ${invoice.invoiceNumber}`;
+  }
   
   const headlineSize = 14;
   const dateSize = 10;
@@ -288,7 +312,16 @@ export async function generateInvoicePDF(invoice: Invoice, language: InvoiceLang
   const dateCenterOffset = (headlineSize - dateSize) / 2;
   drawTextRight(formatDate(invoice.invoiceDate, language), PAGE_WIDTH - MARGIN_RIGHT, y + dateCenterOffset, { size: dateSize });
 
-  y -= 30;
+  y -= 18;
+  
+  // Show reference to original invoice for cancellation invoices
+  if (isCancellation && originalInvoiceNumber) {
+    const refText = t.originalInvoiceRef(originalInvoiceNumber);
+    drawText(refText, MARGIN_LEFT, y, { size: 10, color: COLOR_GRAY });
+    y -= 20;
+  } else {
+    y -= 12;
+  }
 
   // ===========================================
   // SECTION 4: Body Text (Greeting + Intro)
@@ -551,7 +584,12 @@ export async function generateInvoicePDF(invoice: Invoice, language: InvoiceLang
   drawTextRight(pageNumberText, PAGE_WIDTH - MARGIN_RIGHT, MARGIN_BOTTOM, { size: 8, color: COLOR_GRAY });
 
   // Set document metadata
-  const invoiceLabel = language === 'en' ? 'Invoice' : 'Rechnung';
+  let invoiceLabel: string;
+  if (isCancellation) {
+    invoiceLabel = language === 'en' ? 'Cancellation Invoice' : 'Stornorechnung';
+  } else {
+    invoiceLabel = language === 'en' ? 'Invoice' : 'Rechnung';
+  }
   pdfDoc.setTitle(`${invoiceLabel} ${invoice.invoiceNumber}`);
   pdfDoc.setAuthor(invoice.seller.name);
   pdfDoc.setCreationDate(new Date());
@@ -566,7 +604,10 @@ export async function generateInvoicePDF(invoice: Invoice, language: InvoiceLang
   });
 
   // Embed ZUGFeRD XML into PDF and convert to PDF/A-3b compliant document
-  const zugferdPdfBuffer = await embedZugferdIntoPDF(invoice, visualPdfBuffer);
+  const zugferdPdfBuffer = await embedZugferdIntoPDF(invoice, visualPdfBuffer, {
+    isCancellation,
+    originalInvoiceNumber,
+  });
 
   return zugferdPdfBuffer;
 }

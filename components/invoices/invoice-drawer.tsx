@@ -8,7 +8,7 @@ import { Invoice, PartySnapshot, LineItem } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { User, ShoppingCart, FileText, FileCode, Check, SendHorizontal } from 'lucide-react'
+import { User, ShoppingCart, FileText, FileCode, Check, SendHorizontal, Ban, ExternalLink } from 'lucide-react'
 import SendInvoiceModal from './send-invoice-modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,6 +41,9 @@ export default function InvoiceDrawer() {
   const [recipientEmail, setRecipientEmail] = useState('')
   const [isSavingEmail, setIsSavingEmail] = useState(false)
   const [showSendModal, setShowSendModal] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
+  const [cancellationInvoice, setCancellationInvoice] = useState<{ id: string; invoice_number: string } | null>(null)
+  const [originalInvoice, setOriginalInvoice] = useState<{ id: string; invoice_number: string } | null>(null)
 
   useEffect(() => {
     if (isOpen && invoiceId) {
@@ -51,6 +54,8 @@ export default function InvoiceDrawer() {
   const loadInvoice = async (id: string) => {
     setIsLoading(true)
     setError(null)
+    setCancellationInvoice(null)
+    setOriginalInvoice(null)
 
     const { data, error: fetchError } = await supabase
       .from('invoices')
@@ -75,6 +80,33 @@ export default function InvoiceDrawer() {
       .single()
 
     setCompanyName(company?.name || null)
+
+    // If this is a cancelled invoice, check if a cancellation invoice exists
+    if (data.status === 'cancelled' && (data as any).invoice_type !== 'cancellation') {
+      const { data: cancellation } = await supabase
+        .from('invoices')
+        .select('id, invoice_number')
+        .eq('cancelled_invoice_id', id)
+        .single()
+      
+      if (cancellation) {
+        setCancellationInvoice(cancellation)
+      }
+    }
+
+    // If this is a cancellation invoice, load the original invoice info
+    if ((data as any).invoice_type === 'cancellation' && (data as any).cancelled_invoice_id) {
+      const { data: original } = await supabase
+        .from('invoices')
+        .select('id, invoice_number')
+        .eq('id', (data as any).cancelled_invoice_id)
+        .single()
+      
+      if (original) {
+        setOriginalInvoice(original)
+      }
+    }
+
     setIsLoading(false)
   }
 
@@ -174,6 +206,55 @@ const handleDownloadPdf = async () => {
     }
   }
 
+  const handleCreateCancellation = async () => {
+    if (!invoice) return
+
+    // Confirm with user
+    const confirmed = window.confirm(
+      `Möchten Sie wirklich eine Stornorechnung für ${invoice.invoice_number} erstellen?\n\nDie Originalrechnung wird als "storniert" markiert.`
+    )
+    if (!confirmed) return
+
+    setIsCancelling(true)
+    try {
+      const response = await fetch(`/api/invoices/${invoice.id}/cancel`, {
+        method: 'POST',
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || data.details || 'Fehler beim Erstellen der Stornorechnung')
+      }
+
+      toast.success(`Stornorechnung ${data.cancellationInvoice.invoice_number} erstellt`)
+      
+      // Reload invoice to show updated status
+      loadInvoice(invoice.id)
+      router.refresh()
+    } catch (err) {
+      console.error('Error creating cancellation invoice:', err)
+      toast.error(err instanceof Error ? err.message : 'Fehler beim Erstellen der Stornorechnung')
+    } finally {
+      setIsCancelling(false)
+    }
+  }
+
+  // Note: handleOpenInvoice is not used currently but can be enabled for navigation
+  // const handleOpenInvoice = (invoiceIdToOpen: string) => {
+  //   closeDrawer()
+  //   setTimeout(() => openDrawer(invoiceIdToOpen), 100)
+  // }
+
+  // Check if this invoice can be cancelled
+  const canBeCancelled = invoice && 
+    invoice.status !== 'draft' && 
+    invoice.status !== 'cancelled' && 
+    (invoice as any).invoice_type !== 'cancellation' &&
+    !cancellationInvoice
+
+  // Check if this is a cancellation invoice
+  const isCancellationInvoice = invoice && (invoice as any).invoice_type === 'cancellation'
+
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && closeDrawer()}>
       <SheetContent
@@ -197,16 +278,39 @@ const handleDownloadPdf = async () => {
             {/* Header Section */}
             <div className="p-6 pt-12">
               {/* Status Badges */}
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
                 <span className={getStatusClass(invoice.status)}>
                   {getStatusLabel(invoice.status)}
                 </span>
+                {isCancellationInvoice && (
+                  <span className="status-badge" style={{ backgroundColor: '#f97316', color: 'white' }}>
+                    Stornorechnung
+                  </span>
+                )}
                 {isOverdue(invoice) && (
                   <span className="status-badge error">
                     Überfällig
                   </span>
                 )}
               </div>
+              
+              {/* Link to related invoice */}
+              {cancellationInvoice && (
+                <div className="mb-3 p-2 rounded-md bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+                  <p className="text-xs text-orange-700 dark:text-orange-300 flex items-center gap-1">
+                    <Ban className="h-3 w-3" />
+                    Stornorechnung: {cancellationInvoice.invoice_number}
+                  </p>
+                </div>
+              )}
+              {originalInvoice && (
+                <div className="mb-3 p-2 rounded-md bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700">
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
+                    <ExternalLink className="h-3 w-3" />
+                    Storno zu: {originalInvoice.invoice_number}
+                  </p>
+                </div>
+              )}
 
               {/* Recipient (Buyer) */}
               <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
@@ -357,6 +461,19 @@ const handleDownloadPdf = async () => {
                     <SendHorizontal className="h-4 w-4 mr-2" />
                     Per E-Mail versenden
                   </Button>
+                  
+                  {/* Cancel Invoice Button */}
+                  {canBeCancelled && (
+                    <Button
+                      variant="outline"
+                      className="w-full text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200 hover:border-orange-300"
+                      onClick={handleCreateCancellation}
+                      disabled={isCancelling}
+                    >
+                      <Ban className="h-4 w-4 mr-2" />
+                      {isCancelling ? 'Erstelle Stornorechnung...' : 'Rechnung stornieren'}
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

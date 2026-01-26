@@ -90,6 +90,7 @@ export default function DraftDrawer() {
         id: '', // Will be set when saved
         company_id: companyId,
         status: 'draft',
+        invoice_type: 'invoice',
         line_items: [],
         seller_is_self: true,
         seller_contact_id: null,
@@ -111,6 +112,7 @@ export default function DraftDrawer() {
         intro_text: null,
         outro_text: null,
         buyer_reference: null,
+        cancelled_invoice_id: null,
         finalized_at: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
